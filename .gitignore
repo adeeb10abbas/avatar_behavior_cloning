@@ -1,0 +1,6 @@
+**/logs
+bazel-*
+**/__pycache__/
+
+# User-specified configuration
+**/**/user.bazelrc

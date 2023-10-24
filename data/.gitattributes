@@ -1,0 +1,4 @@
+avatar/ filter=lfs diff=lfs merge=lfs -text
+avatar/env_objects filter=lfs diff=lfs merge=lfs -text
+avatar/meshes filter=lfs diff=lfs merge=lfs -text
+avatar/urdf filter=lfs diff=lfs merge=lfs -text

@@ -1,0 +1,55 @@
+load("@ros2//:ros_py.bzl", "ros_py_binary", "ros_py_test")
+load("@ros2//:rosidl.bzl", "rosidl_interfaces_group")
+load("@drake//tools/install:install_data.bzl", "install_data")
+load("@pip//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_python//python:pip.bzl", "compile_pip_requirements")
+
+
+py_test(
+    name = "test_torch_py",
+    srcs = ["test_torch_py.py"],
+    deps = [
+        "@pytorch",
+    ],
+    data = [
+        "//data:avatar_models",
+    ],
+)
+ros_py_binary(
+    name = "test_drake_ros_py",
+    srcs = ["test_drake_ros_py.py"],
+    deps = [
+    "@pytorch",
+    "@ros2//:rclpy_py",
+    requirement("websockets"),
+    requirement("numpy"),
+    requirement("mujoco"),
+    "@drake//bindings/pydrake:pydrake",
+    "@ros2//resources/rmw_isolation:rmw_isolation_py",
+    ],
+)
+ros_py_binary(
+    name = "test_ros_teleop_data_receiver_py",
+    srcs = ["test_ros_teleop_data_receiver_py.py"],
+    deps = [
+    "@pytorch",
+    "@ros2//:rclpy_py",
+    "@ros2//:std_msgs_py",
+    "@ros2//:sensor_msgs_py",
+    "@ros2//:geometry_msgs_py",
+    requirement("numpy"),
+    "@ros2//resources/rmw_isolation:rmw_isolation_py",
+    "//nodes:ros_teleop_data_receiver_py",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "test_imports_py",
+    srcs = ["test_imports_py.py"],
+    deps = [
+    "//utils:all_utils",
+    ],
+    visibility = ["//visibility:public"],
+)
