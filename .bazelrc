@@ -1,0 +1,10 @@
+# Import base-level build configuration.
+import %workspace%/default.bazelrc
+
+# Try to import user-specific configuration local to workspace.
+try-import %workspace%/user.bazelrc
+
+build --action_env=BAZEL_LINKLIBS=-l%:libstdc++.a:-lm
+build --action_env=BAZEL_LINKOPTS=-static-libgcc
+build --action_env=CUDA_DIR=/usr/local/cuda-12.3
+build --action_env=LD_LIBRARY_PATH=/usr/local/cuda-12.3/lib64/

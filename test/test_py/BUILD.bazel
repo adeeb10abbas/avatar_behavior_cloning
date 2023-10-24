@@ -1,0 +1,31 @@
+load("@ros2//:ros_py.bzl", "ros_py_binary", "ros_py_test")
+load("@ros2//:rosidl.bzl", "rosidl_interfaces_group")
+load("@drake//tools/install:install_data.bzl", "install_data")
+load("@pip//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_python//python:pip.bzl", "compile_pip_requirements")
+
+
+py_test(
+    name = "test_torch_py",
+    srcs = ["test_torch_py.py"],
+    deps = [
+        "@pytorch",
+    ],
+    data = [
+        "//data:avatar_models_install",
+    ],
+)
+ros_py_binary(
+    name = "test_drake_ros_py",
+    srcs = ["test_drake_ros_py.py"],
+    deps = [
+    "@pytorch",
+    "@ros2//:rclpy_py",
+    requirement("websockets"),
+    requirement("numpy"),
+    requirement("mujoco"),
+    "@drake//bindings/pydrake:pydrake",
+    "@ros2//resources/rmw_isolation:rmw_isolation_py",
+    ],
+)

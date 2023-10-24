@@ -1,0 +1,34 @@
+
+load("@pip//:requirements.bzl", "requirement")
+package(default_visibility = ["//visibility:public"])
+
+load(
+    "@drake//tools/skylark:drake_py.bzl",
+    "drake_py_binary",
+    "drake_py_library",
+    "drake_py_unittest",
+)
+
+
+py_library(
+  name = "geometry_utils",
+  srcs = ["geometry_utils.py"],
+  deps = [
+    requirement("numpy"),
+    requirement("matplotlib"),
+    requirement("transforms3d"),
+    "@pytorch",
+    "@drake//bindings/pydrake:pydrake",],
+  visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "drake_utils",
+    srcs = ["drake_utils.py"],
+    deps = [
+        ":geometry_utils",
+        requirement("numpy"),
+        requirement("matplotlib"),
+        "@drake//bindings/pydrake:pydrake"],
+    visibility = ["//visibility:public"],
+)

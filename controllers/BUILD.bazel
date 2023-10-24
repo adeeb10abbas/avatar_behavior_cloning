@@ -1,0 +1,27 @@
+load("@pip//:requirements.bzl", "requirement")
+
+
+py_library(
+  name = "spatialstiffness_controller_avatar_arm",
+  srcs = ["spatialstiffness_controller_avatar_arm.py"],
+  deps = [    
+    requirement("numpy"),
+    requirement("matplotlib"),
+    "@drake//bindings/pydrake:pydrake",
+    "//utils:drake_utils"
+    ],
+  visibility = ["//visibility:public"],
+)
+
+py_library(
+  name = "impedance_controller_avatar_hand",
+  srcs = ["impedance_controller_avatar_hand.py"],
+  deps = [   
+    ":spatialstiffness_controller_avatar_arm", 
+    requirement("numpy"),
+    requirement("matplotlib"),
+    "@drake//bindings/pydrake:pydrake",
+    "//utils:drake_utils"
+    ],
+  visibility = ["//visibility:public"],
+)

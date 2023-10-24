@@ -1,0 +1,12 @@
+# Use pip-compile -o requirements.txt requirements.in --allow-unsafe --generate-hashes to update this file with hashes
+websockets==10.4
+opencv-python==4.7.0.68
+numpy==1.24
+pegl==0.2a1
+glfw==2.1.0
+mujoco==2.3.3
+setuptools
+matplotlib
+transforms3d
+pydot
+argparse

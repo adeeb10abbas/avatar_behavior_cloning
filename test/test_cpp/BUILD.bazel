@@ -1,0 +1,30 @@
+
+load("@ros2//:ros_cc.bzl", "ros_cc_binary")
+load("@ros2//:ros_cc.bzl", "ros_cc_test")
+load("@ros2//:ros_py.bzl", "ros_py_binary", "ros_py_test")
+load("@ros2//:rosidl.bzl", "rosidl_interfaces_group")
+
+
+ros_cc_test(
+    name = "test_drake_ros",
+    srcs = ["test_cpp.cpp"],
+    visibility = ["//visibility:public"],
+    data = [
+        "//data:avatar_models_install",
+    ],
+    deps = [
+        "@ros2//:rclcpp_cc",
+        "@ros2//:rmw_cyclonedds_cpp_cc",
+        "@drake//math",
+        "@drake//systems/framework",
+        "@ros2//:geometry_msgs_cc",
+        "@ros2//:visualization_msgs_cc",
+        "@drake//systems/primitives",
+        "@drake//multibody/plant",
+        "@drake//common",
+        "@drake_ros_repo//core",
+        "@drake_ros_repo//viz",
+        "@com_google_googletest//:gtest_main",
+    ],
+
+)

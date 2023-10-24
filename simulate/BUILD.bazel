@@ -1,0 +1,34 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+load(
+    "@drake//tools/skylark:drake_py.bzl",
+    "drake_py_binary",
+    "drake_py_library",
+    "drake_py_test",
+)
+
+load("@pip//:requirements.bzl", "requirement")
+
+py_binary(
+    name = "avatar_simple_py",
+    srcs = ["avatar_simple_py.py"],
+    data = ["//data:avatar_models_install"],
+    deps = [
+    requirement("numpy"),
+    requirement("pydot"),
+    requirement("argparse"),
+    "@drake//bindings/pydrake:pydrake",
+    "//utils:drake_utils",
+    "//utils:geometry_utils",
+    "//controllers:impedance_controller_avatar_hand",
+    "//controllers:spatialstiffness_controller_avatar_arm",
+    ],
+    visibility = ["//visibility:public"],
+)
+py_binary(
+    name = "tester_py",
+    srcs = ["tester_py.py"],
+    deps = [
+    "//utils:geometry_utils",
+    ],
+    visibility = ["//visibility:public"],
+)
