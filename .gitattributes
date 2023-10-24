@@ -1,0 +1,3 @@
+hardware filter=lfs diff=lfs merge=lfs -text
+hardware/*.db3 filter=lfs diff=lfs merge=lfs -text
+hardware/**/*.db3 filter=lfs diff=lfs merge=lfs -text

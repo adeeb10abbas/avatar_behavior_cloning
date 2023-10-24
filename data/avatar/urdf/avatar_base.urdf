@@ -1,0 +1,186 @@
+<robot name = "robot_base">
+  <link name="base">
+    <inertial>
+    <mass value="0.001"/>
+    <inertia ixx="0.0001" ixy="0.0" ixz="0.0" iyy="0.0001" iyz="0.0" izz="0.0001"/>
+    </inertial>
+    <!-- Box edge visualization -->
+    <!-- Top face -->
+    <visual>
+      <origin rpy="0 0 0" xyz="0.26749999999999996 0 -0.245"/>
+      <geometry>
+        <box size="0.03 0.51 0.03"/>
+      </geometry>
+      <material name="Mat Black 1">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="0.26749999999999996 0 0.245"/>
+      <geometry>
+        <box size="0.03 0.51 0.03"/>
+      </geometry>
+      <material name="Mat Black 1">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="0.26749999999999996 -0.24 0"/>
+      <geometry>
+        <box size="0.03 0.03 0.52"/>
+      </geometry>
+      <material name="Mat Black 1">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="0.26749999999999996 0.24 0"/>
+      <geometry>
+        <box size="0.03 0.03 0.52"/>
+      </geometry>
+      <material name="Mat Black 1">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <!-- Bottom face -->
+    <visual>
+      <origin rpy="0 0 0" xyz="-0.26749999999999996 0 -0.245"/>
+      <geometry>
+        <box size="0.03 0.51 0.03"/>
+      </geometry>
+      <material name="Mat Black 1">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="-0.26749999999999996 0 0.245"/>
+      <geometry>
+        <box size="0.03 0.51 0.03"/>
+      </geometry>
+      <material name="Mat Black 1">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="-0.26749999999999996 -0.24 0"/>
+      <geometry>
+        <box size="0.03 0.03 0.52"/>
+      </geometry>
+      <material name="Mat Black 1">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="-0.26749999999999996 0.24 0"/>
+      <geometry>
+        <box size="0.03 0.03 0.52"/>
+      </geometry>
+      <material name="Mat Black 1">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <!-- Side faces -->
+    <!-- right -->
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0.24 -0.245"/>
+      <geometry>
+        <box size="0.565 0.03 0.03"/>
+      </geometry>
+      <material name="Mat Black 1">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0.24 0.245"/>
+      <geometry>
+        <box size="0.565 0.03 0.03"/>
+      </geometry>
+      <material name="Mat Black 1">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="-0.26749999999999996 0.24 0"/>
+      <geometry>
+        <box size="0.03 0.03 0.52"/>
+      </geometry>
+      <material name="Mat Black 1">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="0.26749999999999996 0.24 0"/>
+      <geometry>
+        <box size="0.03 0.03 0.52"/>
+      </geometry>
+      <material name="Mat Black 1">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <!-- left -->
+    <visual>
+      <origin rpy="0 0 0" xyz="0 -0.24 -0.245"/>
+      <geometry>
+        <box size="0.565 0.03 0.03"/>
+      </geometry>
+      <material name="Mat Black 1">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 -0.24 0.245"/>
+      <geometry>
+        <box size="0.565 0.03 0.03"/>
+      </geometry>
+      <material name="Mat Black 1">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="-0.26749999999999996 -0.24 0"/>
+      <geometry>
+        <box size="0.03 0.03 0.52"/>
+      </geometry>
+      <material name="Mat Black 1">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <visual>
+      <origin rpy="0 0 0" xyz="0.26749999999999996 -0.24 0"/>
+      <geometry>
+        <box size="0.03 0.03 0.52"/>
+      </geometry>
+      <material name="Mat Black 1">
+        <color rgba="0.1 0.1 0.1 1.0"/>
+      </material>
+    </visual>
+    <!-- Solid box collision -->
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <box size="0.565 0.51 0.52"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- <link name="support">
+      <inertial>
+    <mass value="0.001"/>
+    <inertia ixx="0.0001" ixy="0.0" ixz="0.0" iyy="0.0001" iyz="0.0" izz="0.0001"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <box size="0.155 0.721 0.02"/>
+      </geometry>
+      <material name="Mat Black 2">
+        <color rgba="0.15 0.15 0.15 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <box size="0.155 0.721 0.02"/>
+      </geometry>
+    </collision>
+  </link> -->
+</robot>

@@ -1,0 +1,48 @@
+load("@ros2//:ros_py.bzl", "ros_py_binary", "ros_py_test")
+load("@pip//:requirements.bzl", "requirement")
+py_library(
+  name = "module_py",
+  srcs = ["__init__.py"],
+)
+ros_py_binary(
+    name = "ros_teleop_data_receiver_py",
+    srcs = ["ros_teleop_data_receiver_py.py"],
+    deps = [
+    ":module_py",
+    "@pytorch",
+    "@ros2//:rclpy_py",
+    "@ros2//:std_msgs_py",
+    "@ros2//:sensor_msgs_py",
+    "@ros2//:geometry_msgs_py",
+    requirement("numpy"),
+    "@ros2//resources/rmw_isolation:rmw_isolation_py",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+ros_py_test(
+    name = "ros_teleop_data_receiver_py_test",
+    srcs = ["tests/test_ros_teleop_data_receiver_py.py"],
+    main = "tests/test_ros_teleop_data_receiver_py.py",
+    deps = [
+    ":module_py",
+    "@pytorch",
+    "@ros2//:rclpy_py",
+    "@ros2//:std_msgs_py",
+    "@ros2//:sensor_msgs_py",
+    "@ros2//:geometry_msgs_py",
+    requirement("numpy"),
+    "//nodes:ros_teleop_data_receiver_py",
+    "@ros2//resources/rmw_isolation:rmw_isolation_py",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+
+py_library(
+    name = "nodes",
+    srcs = glob(["*.py"]),
+    deps = [   
+      ],
+    visibility = ["//visibility:public"],
+  )
