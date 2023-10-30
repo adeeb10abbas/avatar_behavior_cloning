@@ -4,9 +4,10 @@ opencv-python==4.7.0.68
 numpy==1.24
 pegl==0.2a1
 glfw==2.1.0
+pandas
 mujoco==2.3.3
 setuptools
-matplotlib
 transforms3d
+matplotlib
 pydot
 argparse

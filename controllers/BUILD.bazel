@@ -8,7 +8,7 @@ py_library(
     requirement("numpy"),
     requirement("matplotlib"),
     "@drake//bindings/pydrake:pydrake",
-    "//utils:drake_utils"
+    "//utils:all_utils"
     ],
   visibility = ["//visibility:public"],
 )
@@ -21,7 +21,7 @@ py_library(
     requirement("numpy"),
     requirement("matplotlib"),
     "@drake//bindings/pydrake:pydrake",
-    "//utils:drake_utils"
+    "//utils:all_utils"
     ],
   visibility = ["//visibility:public"],
 )

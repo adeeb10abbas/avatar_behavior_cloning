@@ -29,3 +29,12 @@ ros_py_binary(
     "@ros2//resources/rmw_isolation:rmw_isolation_py",
     ],
 )
+
+py_test(
+    name = "test_imports_py",
+    srcs = ["test_imports_py.py"],
+    deps = [
+    "//utils:all_utils",
+    ],
+    visibility = ["//visibility:public"],
+)

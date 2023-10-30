@@ -1,7 +1,4 @@
-import numpy as np
-from pydrake.all import *
-from utils.geometry_utils import *
-import matplotlib.pyplot as plt
+from avatar_behavior_cloning.utils.geometry_utils import *
 
 def vis_hand_pose(meshcat, X_TG, path, load=False, color=[0.1, 0.1, 0.1, 0.3]):
     """render the tool at the pose tf in meshcat"""
@@ -16,7 +13,6 @@ def vis_hand_pose(meshcat, X_TG, path, load=False, color=[0.1, 0.1, 0.1, 0.3]):
         meshcat.SetObject(path, mesh, Rgba(*color))
     meshcat.SetProperty(path, "color", color)
     meshcat.SetTransform(path, X_TG)
-
 
 def _get_geometries_direct(plant, scene_graph, bodies):
     geometry_ids = []
@@ -153,7 +149,7 @@ def simplify_plant(plant, scene_graph):
 def start_logger():
     plt.close()
     fig,  ax = plt.subplots()
-
+    
     # fit the labels inside the plot
     ax.set_xlim(0, 25)
     ax.set_ylim(-0.5, 0.5)

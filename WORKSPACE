@@ -3,7 +3,7 @@
 ## Description : This file is used to build the workspace for the project
 ## LICENSE : MIT
 
-workspace(name = "avatar-behavior-cloning")
+workspace(name = "avatar_behavior_cloning")
 
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository", "new_git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -46,7 +46,6 @@ http_archive(
         "https://github.com/RobotLocomotion/drake/archive/refs/tags/{}.tar.gz".format(DRAKE_TAG),  # noqa
     ],
 )
-
 
 new_git_repository(
     name = "tinyxml2",

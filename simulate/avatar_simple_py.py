@@ -1,5 +1,6 @@
 # Import some basic libraries and functions for this tutorial.
 import numpy as np
+from avatar_behavior_cloning.utils.geometry_utils import *
 
 from pydrake.geometry import (
     MeshcatVisualizer,
@@ -7,22 +8,15 @@ from pydrake.geometry import (
     Role,
     StartMeshcat,
 )
-from pydrake.math import RigidTransform, RollPitchYaw
-from pydrake.multibody.parsing import Parser
-from pydrake.systems.analysis import Simulator
-from pydrake.systems.framework import DiagramBuilder
-from pydrake.all import AddMultibodyPlant, MultibodyPlantConfig
+import argparse
+
 from controllers.spatialstiffness_controller_avatar_arm import PoseControllerAvatar
 from controllers.impedance_controller_avatar_hand import HandControllerAvatar
-from drake_utils import *
-from geometry import unpack_action
 
 import pydot
 import time
 
 # to remove
-from pydrake.all import *
-import argparse
 
 num_positions = 7
 panda_kp = [50] * num_positions

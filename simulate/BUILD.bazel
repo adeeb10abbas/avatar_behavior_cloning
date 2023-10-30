@@ -8,6 +8,13 @@ load(
 
 load("@pip//:requirements.bzl", "requirement")
 
+py_library(
+    name = "module_py",
+    srcs = ["__init__.py"],
+    deps = ["//:module_py"],
+    visibility = ["//visibility:public"],
+)
+
 py_binary(
     name = "avatar_simple_py",
     srcs = ["avatar_simple_py.py"],
@@ -17,18 +24,10 @@ py_binary(
     requirement("pydot"),
     requirement("argparse"),
     "@drake//bindings/pydrake:pydrake",
-    "//utils:drake_utils",
+    "//utils:all_utils",
     "//utils:geometry_utils",
     "//controllers:impedance_controller_avatar_hand",
     "//controllers:spatialstiffness_controller_avatar_arm",
-    ],
-    visibility = ["//visibility:public"],
-)
-py_binary(
-    name = "tester_py",
-    srcs = ["tester_py.py"],
-    deps = [
-    "//utils:geometry_utils",
     ],
     visibility = ["//visibility:public"],
 )

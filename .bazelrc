@@ -8,3 +8,4 @@ build --action_env=BAZEL_LINKLIBS=-l%:libstdc++.a:-lm
 build --action_env=BAZEL_LINKOPTS=-static-libgcc
 build --action_env=CUDA_DIR=/usr/local/cuda-12.3
 build --action_env=LD_LIBRARY_PATH=/usr/local/cuda-12.3/lib64/
+build --copt=-Wunused-variable

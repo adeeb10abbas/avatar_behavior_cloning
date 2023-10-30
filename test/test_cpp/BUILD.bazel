@@ -7,7 +7,7 @@ load("@ros2//:rosidl.bzl", "rosidl_interfaces_group")
 
 ros_cc_test(
     name = "test_drake_ros",
-    srcs = ["test_cpp.cpp"],
+    srcs = ["test_cc.cpp"],
     visibility = ["//visibility:public"],
     data = [
         "//data:avatar_models_install",

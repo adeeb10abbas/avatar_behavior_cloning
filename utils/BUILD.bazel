@@ -9,11 +9,18 @@ load(
     "drake_py_unittest",
 )
 
+py_library(
+    name = "module_py",
+    srcs = ["__init__.py"],
+    visibility = ["//visibility:public"],
+)
 
 py_library(
   name = "geometry_utils",
-  srcs = ["geometry_utils.py"],
+  srcs = glob(["*.py"]),
   deps = [
+    ":module_py",
+    "//simulate:module_py",
     requirement("numpy"),
     requirement("matplotlib"),
     requirement("transforms3d"),
@@ -22,13 +29,11 @@ py_library(
   visibility = ["//visibility:public"],
 )
 
+# rollup of the whole library 
 py_library(
-    name = "drake_utils",
-    srcs = ["drake_utils.py"],
-    deps = [
-        ":geometry_utils",
-        requirement("numpy"),
-        requirement("matplotlib"),
-        "@drake//bindings/pydrake:pydrake"],
-    visibility = ["//visibility:public"],
+  name = "all_utils",
+  deps = [
+    ":geometry_utils",
+  ],
+  visibility = ["//visibility:public"],
 )
