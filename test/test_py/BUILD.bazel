@@ -13,7 +13,7 @@ py_test(
         "@pytorch",
     ],
     data = [
-        "//data:avatar_models_install",
+        "//data:avatar_models",
     ],
 )
 ros_py_binary(

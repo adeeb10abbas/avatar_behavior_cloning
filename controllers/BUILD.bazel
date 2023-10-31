@@ -1,5 +1,9 @@
 load("@pip//:requirements.bzl", "requirement")
 
+py_library(
+  name = "module_py",
+  srcs = ["__init__.py"],
+)
 
 py_library(
   name = "spatialstiffness_controller_avatar_arm",
@@ -25,3 +29,17 @@ py_library(
     ],
   visibility = ["//visibility:public"],
 )
+
+# Rolling up the controllers py_library
+
+py_library(
+    name = "controllers",
+    srcs = glob(["*.py"]),
+    deps = [   
+      requirement("numpy"),
+      requirement("matplotlib"),
+      "@drake//bindings/pydrake:pydrake",
+      "//utils:all_utils"
+      ],
+    visibility = ["//visibility:public"],
+  )

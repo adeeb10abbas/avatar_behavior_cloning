@@ -6,9 +6,3 @@ filegroup(
     data = glob(["avatar/**"]),
     visibility = ["//visibility:public"],
 )
-
-install(
-    name = "avatar_models_install",
-    data = [":avatar_models"],
-    visibility = ["//visibility:public"],
-)

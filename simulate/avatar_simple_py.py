@@ -130,12 +130,14 @@ if __name__ == "__main__":
 
     #############################################
     # Add Plant
+
+
     parser = Parser(plant)
-    avatar_path = "models/avatar_gripper_3f.urdf"
+    # avatar_path = "data/avatar/urdf/avatar_gripper_3f.urdf"
     #  "models/avatar_gripper_3f.urdf"
 
-    hand = parser.AddModelFromFile(avatar_path)
-    franka_combined_path = "models/panda_arm.urdf"
+    hand = parser.AddModelFromFile("data/avatar/urdf/avatar_gripper_3f.urdf")
+    franka_combined_path = "data/avatar/urdf/panda_arm.urdf"
     franka = parser.AddModelFromFile(franka_combined_path)
 
     # set default joints

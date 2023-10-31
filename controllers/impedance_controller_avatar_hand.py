@@ -6,51 +6,9 @@ from pydrake.systems.framework import (
 )
 from pydrake.systems.framework import LeafSystem, BasicVector, PortDataType
 from pydrake.multibody.tree import MultibodyForces, JacobianWrtVariable
-from spatialstiffness_controller_avatar_arm import *
+from avatar_behavior_cloning.controllers.spatialstiffness_controller_avatar_arm import *
 from collections import OrderedDict
-
-# from drake_utils import get_joints, get_joint_actuators
-def get_joints(plant, model_instances=None):
-
-    # TODO(eric.cousineau): Hoist this somewhere?
-
-    return _get_plant_aggregate(plant.num_joints, plant.get_joint, JointIndex, model_instances)
-
-
-def get_joint_actuators(plant, model_instances=None):
-
-    # TODO(eric.cousineau): Hoist this somewhere?
-
-    return _get_plant_aggregate(plant.num_actuators, plant.get_joint_actuator, JointActuatorIndex, model_instances)
-
-
-def _get_plant_aggregate(num_func, get_func, index_cls, model_instances=None):
-
-    items = []
-
-    for i in range(num_func()):
-
-        item = get_func(index_cls(i))
-
-        if model_instances is None or item.model_instance() in model_instances:
-
-            items.append(item)
-
-    return items
-np.set_printoptions(3)
-def get_joints(plant, model_instances=None):
-
-    # TODO(eric.cousineau): Hoist this somewhere?
-
-    return _get_plant_aggregate(plant.num_joints, plant.get_joint, JointIndex, model_instances)
-
-
-def get_joint_actuators(plant, model_instances=None):
-
-    # TODO(eric.cousineau): Hoist this somewhere?
-
-    return _get_plant_aggregate(plant.num_actuators, plant.get_joint_actuator, JointActuatorIndex, model_instances)
-
+from avatar_behavior_cloning.utils.drake_utils import get_joints, get_joint_actuators
 
 class LowPassFilter:
     def __init__(self, dimension: int, h: float, w_cutoff: float):

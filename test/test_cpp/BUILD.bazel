@@ -10,7 +10,7 @@ ros_cc_test(
     srcs = ["test_cc.cpp"],
     visibility = ["//visibility:public"],
     data = [
-        "//data:avatar_models_install",
+        "//data:avatar_models",
     ],
     deps = [
         "@ros2//:rclcpp_cc",
