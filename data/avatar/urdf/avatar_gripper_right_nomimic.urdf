@@ -12,7 +12,7 @@
     <visual>
       <origin rpy="0 0   0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://avatar_gripper_description/meshes/right/thumb_base_extra.obj"/>
+        <mesh filename="../meshes/right/thumb_base_extra.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -45,7 +45,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://avatar_gripper_description/meshes/right/thumb_knuckle.obj"/>
+        <mesh filename="../meshes/right/thumb_knuckle.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -85,7 +85,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://avatar_gripper_description/meshes/right/thumb_fingertip.obj"/>
+        <mesh filename="../meshes/right/thumb_fingertip.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -126,7 +126,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://avatar_gripper_description/meshes/right/thumb_swivel_link.obj"/>
+        <mesh filename="../meshes/right/thumb_swivel_link.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -153,7 +153,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://avatar_gripper_description/meshes/right/index_base_connector.obj"/>
+        <mesh filename="../meshes/right/index_base_connector.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -180,7 +180,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://avatar_gripper_description/meshes/right/index_knuckle.obj"/>
+        <mesh filename="../meshes/right/index_knuckle.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -220,7 +220,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://avatar_gripper_description/meshes/right/index_fingertip.obj"/>
+        <mesh filename="../meshes/right/index_fingertip.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -278,7 +278,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://avatar_gripper_description/meshes/right/index_knuckle.obj"/>
+        <mesh filename="../meshes/right/index_knuckle.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -318,7 +318,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://avatar_gripper_description/meshes/right/index_fingertip.obj"/>
+        <mesh filename="../meshes/right/index_fingertip.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -376,7 +376,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://avatar_gripper_description/meshes/right/gripper_base.obj"/>
+        <mesh filename="../meshes/right/gripper_base.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.7 1"/>

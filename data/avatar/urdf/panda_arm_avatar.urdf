@@ -13,7 +13,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="meshes/visual/link0.obj"/>
+        <mesh filename="../meshes/visual/link0.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -110,7 +110,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="meshes/visual/link1.obj"/>
+        <mesh filename="../meshes/visual/link1.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -166,7 +166,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="meshes/visual/link2.obj"/>
+        <mesh filename="../meshes/visual/link2.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -222,7 +222,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="meshes/visual/link3.obj"/>
+        <mesh filename="../meshes/visual/link3.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -272,7 +272,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="meshes/visual/link4.obj"/>
+        <mesh filename="../meshes/visual/link4.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -334,7 +334,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="meshes/visual/link5.obj"/>
+        <mesh filename="../meshes/visual/link5.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -426,7 +426,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="meshes/visual/link6.obj"/>
+        <mesh filename="../meshes/visual/link6.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -476,7 +476,7 @@
     <visual>
       <origin rpy="1.57079632679 0 0"/>
       <geometry>
-        <mesh filename="meshes/visual/link7.obj"/>
+        <mesh filename="../meshes/visual/link7.obj"/>
       </geometry>
     </visual>
     <collision>
@@ -633,7 +633,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/thumb_base_extra.obj"/>
+        <mesh filename="../meshes/thumb_base_extra.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -642,7 +642,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/thumb_base_extra.obj"/>
+        <mesh filename="../meshes/thumb_base_extra.obj"/>
       </geometry>
     </collision>
   </link>
@@ -654,7 +654,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/thumb_knuckle.obj"/>
+        <mesh filename="../meshes/thumb_knuckle.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -663,7 +663,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/thumb_knuckle.obj"/>
+        <mesh filename="../meshes/thumb_knuckle.obj"/>
       </geometry>
     </collision>
   </link>
@@ -706,7 +706,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/thumb_fingertip.obj"/>
+        <mesh filename="../meshes/thumb_fingertip.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -715,7 +715,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/thumb_fingertip.obj"/>
+        <mesh filename="../meshes/thumb_fingertip.obj"/>
       </geometry>
     </collision>
   </link>
@@ -732,7 +732,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/thumb_swivel_link.obj"/>
+        <mesh filename="../meshes/thumb_swivel_link.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -756,7 +756,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/index_base_connector.obj"/>
+        <mesh filename="../meshes/index_base_connector.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -771,7 +771,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/index_knuckle.obj"/>
+        <mesh filename="../meshes/index_knuckle.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -780,7 +780,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/index_knuckle.obj"/>
+        <mesh filename="../meshes/index_knuckle.obj"/>
       </geometry>
     </collision>
   </link>
@@ -800,7 +800,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/index_fingertip.obj"/>
+        <mesh filename="../meshes/index_fingertip.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -809,7 +809,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/index_fingertip.obj"/>
+        <mesh filename="../meshes/index_fingertip.obj"/>
       </geometry>
     </collision>
   </link>
@@ -829,7 +829,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/index_knuckle.obj"/>
+        <mesh filename="../meshes/index_knuckle.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -838,7 +838,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/index_knuckle.obj"/>
+        <mesh filename="../meshes/index_knuckle.obj"/>
       </geometry>
     </collision>
   </link>
@@ -858,7 +858,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/index_fingertip.obj"/>
+        <mesh filename="../meshes/index_fingertip.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.9 1"/>
@@ -867,7 +867,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/index_fingertip.obj"/>
+        <mesh filename="../meshes/index_fingertip.obj"/>
       </geometry>
     </collision>
   </link>
@@ -887,7 +887,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="meshes/gripper_base.obj"/>
+        <mesh filename="../meshes/gripper_base.obj"/>
       </geometry>
       <material name="">
         <color rgba="0.9 0.9 0.7 1"/>

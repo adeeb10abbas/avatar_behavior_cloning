@@ -39,452 +39,269 @@ def rotation_matrix_to_axang3(rot_mat):
     return axangle[0] * axangle[1]
 
 
-@dc.dataclass
-class PoseFrames:
-    frame_T: Frame
-    frame_P: Frame
+class LowPassFilter:
+    def __init__(self, dimension: int, h: float, w_cutoff: float):
+        if w_cutoff == np.inf:
+            self.a = 1.0
+        else:
+            self.a = h * w_cutoff / (1 + h * w_cutoff)
 
-    def __eq__(self, rhs):
-        return self.frame_T is rhs.frame_T and self.frame_P is rhs.frame_P
+        self.n = dimension
+        self.x = None
 
-    def AssertValid(self):
-        assert self.frame_T is not None
-        assert self.frame_P is not None
+    def update(self, u: np.array):
+        assert u.size == self.n
 
+        if self.x is None:
+            self.x = u
+        else:
+            self.x = (1 - self.a) * self.x + self.a * u
 
-@dc.dataclass
-class PoseFeedback:
-    kp_xyz: np.ndarray
-    kd_xyz: np.ndarray
-    kp_rot: np.ndarray
-    kd_rot: np.ndarray
+    def reset_state(self):
+        self.x = None
 
-    def __call__(self, X_WP, V_WP, X_WPdes, V_WPdes):
-        # Transform to "negative error": desired w.r.t. actual,
-        # expressed in world frame (for applying the force).
-        # TODO(eric.cousineau): Use ComputePoseDiffInCommonFrame.
-        p_PPdes_W = X_WPdes.translation() - X_WP.translation()
-        R_WP = X_WP.rotation()
-        R_PPdes = R_WP.inverse() @ X_WPdes.rotation()
-        axang3_PPdes = rotation_matrix_to_axang3(R_PPdes)
-        axang3_PPdes_W = R_WP @ axang3_PPdes
-        V_PPdes_W = V_WPdes - V_WP
-        v_PPdes_W = V_PPdes_W.translational()
-        w_PPdes_W = V_PPdes_W.rotational()
-        # Compute wrench components.
+    def has_valid_state(self):
+        return self.x is not None
 
-        f_P_W = self.kp_xyz * p_PPdes_W + self.kd_xyz * v_PPdes_W
-        tau_P_W = self.kp_rot * axang3_PPdes_W + self.kd_rot * w_PPdes_W
-        F_P_W_feedback = SpatialForce(tau=tau_P_W, f=f_P_W)
-        return F_P_W_feedback
+    def get_current_state(self):
+        assert self.x is not None
+        return self.x.copy()
 
 
-@dc.dataclass
-class PoseReferenceInputPorts:
-    frames: PoseFrames
-    X_TPdes: InputPort
-    V_TPdes: InputPort
-
-    def fix(self, plant, context, plant_context=None):
-        if plant_context is None:
-            plant_context = plant.GetMyContextFromRoot(context)
-        X_TP_init = plant.CalcRelativeTransform(
-            plant_context,
-            self.frames.frame_T,
-            self.frames.frame_P,
-        )
-        V_TP_init = SpatialVelocity.Zero()
-        return PosePortValues(
-            X_TPdes=fix_port(self.X_TPdes, context, X_TP_init),
-            V_TPdes=fix_port(self.V_TPdes, context, V_TP_init),
-        )
-
-
-@dc.dataclass
-class PosePortValues:
-    X_TPdes: FixedInputPortValue
-    V_TPdes: FixedInputPortValue
-
-    def update(self, X_TPdes, V_TPdes=None):
-        if V_TPdes is None:
-            V_TPdes = SpatialVelocity.Zero()
-        self.X_TPdes.GetMutableData().set_value(X_TPdes)
-        self.V_TPdes.GetMutableData().set_value(V_TPdes)
-
-
-@dc.dataclass
-class JointFeeback:
-    Kp: np.ndarray
-    Kd: np.ndarray
-
-    def __call__(self, q, v, q_des, v_des):
-        return self.Kp * (q_des - q) + self.Kd * (v_des - v)
-
-
-@dc.dataclass
-class DofSetForDynamics:
+class HandControllerAvatar(LeafSystem):
     """
-    Like DofSet, but for dynamics where we are not constrained to nq = nv = nu.
-    """
-
-    q: np.ndarray  # bool
-    v: np.ndarray  # bool
-    u: np.ndarray  # bool
-
-
-def get_frame_spatial_velocity(plant, context, frame_T, frame_F, frame_E=None):
-    """
-    Returns:
-        SpatialVelocity of frame F's origin w.r.t. frame T, expressed in E
-        (which is frame T if unspecified).
-    """
-    if frame_E is None:
-        frame_E = frame_T
-    Jv_TF_E = plant.CalcJacobianSpatialVelocity(
-        context,
-        JacobianWrtVariable.kV,
-        frame_F,
-        [0, 0, 0],
-        frame_T,
-        frame_E,
-    )
-    v = plant.GetVelocities(context)
-    V_TF_E = SpatialVelocity(Jv_TF_E @ v)
-    return V_TF_E
-
-
-def make_empty_dofset(plant):
-    return DofSetForDynamics(
-        q=np.zeros(plant.num_positions(), dtype=bool),
-        v=np.zeros(plant.num_velocities(), dtype=bool),
-        u=np.zeros(plant.num_actuated_dofs(), dtype=bool),
-    )
-
-
-def articulated_model_instance_dofset(plant, instance):
-    """
-    Returns DofSetForDynamics given a particular model instance.
-    """
-    dofs = make_empty_dofset(plant)
-    joint_indices = plant.GetJointIndices(instance)
-    for joint_index in joint_indices:
-        joint = plant.get_joint(joint_index)
-        start_in_q = joint.position_start()
-        end_in_q = start_in_q + joint.num_positions()
-        dofs.q[start_in_q:end_in_q] = True
-        start_in_v = joint.velocity_start()
-        end_in_v = start_in_v + joint.num_velocities()
-        dofs.v[start_in_v:end_in_v] = True
-
-    B_full = plant.MakeActuationMatrix()
-    B = B_full[dofs.v]
-    assert set(B.flat) <= {0.0, 1.0}
-    B_rows = B.sum(axis=0)
-    assert set(B_rows.flat) <= {0.0, 1.0}
-    dofs.u[:] = B_rows.astype(bool)
-
-    nq = plant.num_positions(instance)
-    nv = plant.num_velocities(instance)
-    nu = plant.num_actuated_dofs(instance)
-    assert dofs.q.sum() == nq
-    assert dofs.v.sum() == nv
-    assert dofs.u.sum() == nu
-    return dofs
-
-
-class PoseControllerAvatar(LeafSystem):
-    """
-    Leveraging notation in line with Drake and Russ's Manipulation course
-    notes:
-    https://manipulation.csail.mit.edu/force.html#section3
-
-    For additional operationaln space refs, see:
-
-    - A. D. Ames and M. Powell, “Towards the Unification of Locomotion and
-      Manipulation through Control Lyapunov Functions and Quadratic Programs,”
-      in Control of Cyber-Physical Systems, 2013.
-      http://link.springer.com/10.1007/978-3-319-01159-2_12
-      - Easier to digest this notation.
-
-    - O. Khatib, L. Sentis, J. Park, and J. Warren, “Whole-Body Dynamic
-      Behavior and Control of Human-Like Robots,” Int. J. Human. Robot. 2004.
-      https://www.worldscientific.com/doi/abs/10.1142/S0219843604000058
-      https://khatib.stanford.edu/publications/pdfs/Khatib_2004_IJHR.pdf
-      - Good for main reference of above paper.
-
-    - O. Khatib, “A unified approach for motion and force control of robot
-      manipulators: The operational space formulation,” IEEE Journal on
-      Robotics and Automation, 1987.
-      https://khatib.stanford.edu/publications/pdfs/Khatib_1987_RA.pdf
-
-    - Robotics Handbook, p.236, Sec. 10.6, Second-Order Redundancy Resolution.
-
-    Derivation:
-    https://toyotaresearchinstitute.sharepoint.com/:o:/r/sites/ToyotaResearchInstitute/Shared%20Documents/Dexterous%20Manipulation/Issues/Anzu%20Issue%208783%20-%20Pose%20Tracking/2022-09-14%20Pose%20Tracking?d=w94c38e6f0ac547a78e188b2d23a734b5&csf=1&web=1&e=HkxogD
+    Implement Joint Impedance Controller just for the hand
     """
 
     def __init__(
-        self,
-        plant,
-        model_instance,
-        frame_T,
-        frame_P,
+        self, plant, model_instance, damping_ratio=1, controller_mode="impedance", debug_plot=False
     ):
-        """frame_T is the task frame (inertial frame) and frame_P is the end effector frame"""
+        """
+        Inverse dynamics controller makes use of drake's
+            InverseDynamicsController. The version without mimic joints.
+        :param plant_robot:
+        :param joint_stiffness: (nq,) numpy array which defines the stiffness
+            of all joints.
+
+        joint / state:
+        right_thumb_knuckle_joint
+        right_thumb_finger_joint
+        right_thumb_swivel_joint
+        right_index_knuckle_joint
+        right_index_fingertip_joint
+        right_middle_knuckle_joint
+        right_middle_fingertip_joint
+        right_thumb_flex_motor_joint
+        right_thumb_swivel_motor_joint
+        right_index_flex_motor_joint
+
+        actuator:
+        right_thumb_flex_motor_joint
+        right_thumb_swivel_motor_joint
+        right_index_flex_motor_joint
+
+        """
         super().__init__()
 
+        # joints = get_joint_actuators(plant, [model_instance])
+        # for joint in joints:
+        #     print(joint.name())
+        # import pdb; pdb.set_trace()
+
+        # joint name: [mimic joint index, scale, offset]
+        self.joint_infos = OrderedDict()
+        self.joint_infos["right_thumb_knuckle_joint"] = ["right_thumb_flex_motor_joint", 0.28, 0]
+        self.joint_infos["right_thumb_finger_joint"] = ["right_thumb_flex_motor_joint", 0.24, 0]
+        self.joint_infos["right_thumb_swivel_joint"] = ["right_thumb_swivel_motor_joint", -0.6075, 0.43]
+        self.joint_infos["right_index_knuckle_joint"] = ["right_index_flex_motor_joint", 0.4016, 0]
+        self.joint_infos["right_index_fingertip_joint"] = ["right_index_flex_motor_joint", 0.40, 0]
+        self.joint_infos["right_middle_knuckle_joint"] = ["right_index_flex_motor_joint", 0.4016, 0]
+        self.joint_infos["right_middle_fingertip_joint"] = ["right_index_flex_motor_joint", 0.40, 0]
+        self.joint_infos["right_thumb_flex_motor_joint"] = ["right_thumb_flex_motor_joint", 1, 0]
+        self.joint_infos["right_thumb_swivel_motor_joint"] = ["right_thumb_swivel_motor_joint", 1, 0]
+        self.joint_infos["right_index_flex_motor_joint"] = ["right_index_flex_motor_joint", 1, 0]
+
+        self.actuator_index = [7, 8, 9]
+        self.plant = plant
+        self.controller_mode = controller_mode
+        self.model_instance = model_instance
+
         context = plant.CreateDefaultContext()
-        ndof = plant.num_positions(model_instance)
-        nv = plant.num_velocities(model_instance)
+        self.context = plant.CreateDefaultContext()
 
-        # assert ndof == nv  # 17
-        nx = 2 * ndof
-        nu = plant.num_actuated_dofs(model_instance)  # 7
-        self.nu = nu
+        self.nq = plant.num_positions(model_instance)
+        self.nv = plant.num_velocities(model_instance)
+        self.nu = 3  # hard-coded to debug plant.num_actuated_dofs(model_instance)
+        self.nx = 2 * self.nq
 
-        # assert ndof == nu
-        dofs = articulated_model_instance_dofset(plant, model_instance)
-        assert np.sum(dofs.q) == ndof
-        assert np.sum(dofs.v) == ndof
-        FIX_FINGER = True  # always command certain torques to the fingers
-
-        kpt_xyz = 400  # 100.0
-        kdt_xyz = 40  # 20.0
-        kpt_rot = 400  # 100.0
-        kdt_rot = 40  # 20.0 # 400, 40, 400, 40
-        self.pose_feedback = PoseFeedback(
-            kp_xyz=kpt_xyz,
-            kd_xyz=kdt_xyz,  # lambda R_TP:
-            kp_rot=kpt_rot,
-            kd_rot=kdt_rot,  # lambda R_TP:
+        self.robot_state_input_port = self.DeclareInputPort(
+            "robot_state", PortDataType.kVectorValued, self.nq + self.nv
+        )
+        self.tau_feedforward_input_port = self.DeclareInputPort("tau_feedforward", PortDataType.kVectorValued, self.nv)
+        self.joint_angle_commanded_input_port = self.DeclareInputPort(
+            "q_robot_commanded", PortDataType.kVectorValued, self.nu
+        )
+        self.joint_torque_output_port = self.DeclareVectorOutputPort(
+            "joint_torques", BasicVector(self.nv), self.CalcJointTorques
         )
 
-        # Very stiff.
-        kpp = 200.0  # 100.0
-        kdp = 20.0
-        # # Less stiff.
-        # kpp = 50.0
-        # kdp = 12.0
-        # # Wiggly.
-        # kpp = 5.0
-        # kdp = 1.0
-        self.scaled_joint_feedback = JointFeeback(
-            Kp=kpp,
-            Kd=kdp,
-        )
+        # control rate
+        self.t = 0
+        self.control_period = 0.001  # 1000Hz. Determines how fast the controller is being called
+        self.DeclareDiscreteState(self.nv)
+        self.DeclarePeriodicDiscreteUpdateNoHandler(self.control_period)
 
-        self.direct_joint_feedback = JointFeeback(
-            Kp=np.diag([160.0, 200.0, 200.0, 160.0, 25.0, 70.0, 16.0]) * 0.4,
-            Kd=np.diag([37.5, 50.0, 37.5, 25.0, 5.0, 3.75, 2.5]) * 0.6,
-        )
+        # joint velocity estimator
+        self.q_prev = None
+        # Set to high frequency (no filter is needed for v)
+        self.w_cutoff = 2 * np.pi * 1000
+        self.velocity_estimator = LowPassFilter(self.nv, self.control_period, self.w_cutoff)
+        self.dofs = articulated_model_instance_dofset(plant, model_instance)
 
-        # Should use initialization event.
-        q0 = plant.GetPositions(context, model_instance)
-        v0 = np.zeros(nv)
+        # controller gains
+        self.damping_ratio = damping_ratio
+        self.get_full_stiffness()  # joint_stiffness
+        # self.Kv = 2 * self.damping_ratio * np.sqrt(self.Kp)
 
-        q_lower = plant.GetPositionLowerLimits()[dofs.q]
-        q_upper = plant.GetPositionUpperLimits()[dofs.q]
-        v_lower = plant.GetVelocityLowerLimits()[dofs.v]
-        v_upper = plant.GetVelocityUpperLimits()[dofs.v]
-        u_lower = plant.GetEffortLowerLimits()[dofs.u]
-        u_upper = plant.GetEffortUpperLimits()[dofs.u]
+        # to define later
+        self.joint_pos_lower_limit = np.array([-1.0, -2.0, -1.0])
+        self.joint_pos_upper_limit = np.array([0, 0, 0])
+        self.joint_vel_limit = np.array([2.0, 2.0, 2.0])
+        self.joint_effort_limit = np.array([1000, 1000, 1000])
 
-        def assert_within_limits(value, *, lower, upper):
-            too_low = value < lower
-            too_high = value > upper
-            assert not (too_low | too_high).any()
+        self.Kv_log = []
+        self.tau_stiffness_log = []
+        self.tau_damping_log = []
+        self.sample_times = []
 
-        def assert_values_within_limits(q, v, u_des):
-            assert_within_limits(q, lower=q_lower, upper=q_upper)
-            assert_within_limits(v, lower=v_lower, upper=v_upper)
-            assert_within_limits(u_des, lower=u_lower, upper=u_upper)
+        self.debug_count = 0
+        # if debug_plot:
 
-        def control_math(X_TPdes, V_TPdes):
-            q = plant.GetPositions(context, model_instance)
-            v = plant.GetVelocities(context, model_instance)
-            X_TP = plant.CalcRelativeTransform(context, frame_T, frame_P)
-            V_TP = get_frame_spatial_velocity(plant, context, frame_T, frame_P)
+    def get_full_stiffness(self):
+        self.Kp = 20*np.array([1, 0.25, 1, 1, 0.25, 1, 0.25, 1, 1, 1])  # np.ones(10)  #
+        M = self.plant.CalcMassMatrixViaInverseDynamics(self.context)
+        M = M[self.dofs.v][:, self.dofs.v]
+        # M = M[self.actuator_index]  # [:, self.actuator_index]
 
-            Jv_TP_full = plant.CalcJacobianSpatialVelocity(
-                context,
-                JacobianWrtVariable.kV,
-                frame_P,
-                [0, 0, 0],
-                frame_T,
-                frame_T,
-            )  # J
-            Jv_TP = Jv_TP_full[:, dofs.v]
-            Jvdot_v_TP = plant.CalcBiasSpatialAcceleration(
-                context,
-                JacobianWrtVariable.kV,
-                frame_P,
-                [0, 0, 0],
-                frame_T,
-                frame_T,
-            )  #
+        m = np.sort(np.linalg.eig(M)[0])[::-1]
+        m = np.array(M.diagonal())
+        # For some reason, the order of the state output port is different from the order defined in urdf
+        m[0:3] = [m[1], m[2], m[0]]
+        self.Kv = 2 * self.damping_ratio * np.sqrt(self.Kp * m)
 
-            # Full-plant dynamics.
-            M_full = plant.CalcMassMatrix(context)
-            C_full = plant.CalcBiasTerm(context)
-            tau_g_full = plant.CalcGravityGeneralizedForces(context)
+    def expand_joints(self, target_actuator_joint_pos, no_bias=False):
+        """
+        enforce mimic joint constraints of the robot hand.
+        compute the desired joints for all joints of the hand
+        """
+        # target_actuator_joint_pos = np.minimum(target_actuator_joint_pos, self.joint_pos_upper_limit)
+        # target_actuator_joint_pos = np.maximum(target_actuator_joint_pos, self.joint_pos_lower_limit)
 
-            # Full-order dynamics, but selecting controlled DoFs.
-            M = M_full[dofs.v, :][:, dofs.v]
-            C = C_full[dofs.v]
-            tau_g = tau_g_full[dofs.v]
+        target_actuator_dict = {
+            "right_thumb_flex_motor_joint": target_actuator_joint_pos[0],
+            "right_thumb_swivel_motor_joint": target_actuator_joint_pos[1],
+            "right_index_flex_motor_joint": target_actuator_joint_pos[2],
+        }
+        target_joints = []
+        for joint_name, (mimic_joint_name, w, b) in self.joint_infos.items():
+            # print(f"joint_name: {joint_name}, mimic_joint_name: {mimic_joint_name}")
+            target_joint = target_actuator_dict[mimic_joint_name] * w
+            target_joint += b
+            target_joints.append(target_joint)
+        return target_joints
 
-            # Task-space dynamics.
-            Jt = Jv_TP
-            Jtdot_v = Jvdot_v_TP.get_coeffs()  # J_dot q_dot
-            # Purely kinematic.
-            Nt_T = np.eye(ndof) - np.linalg.pinv(Jt) @ Jt  # null space
+    def CalcJointTorques(self, context, y_data):
+        state = context.get_discrete_state_vector().get_value()
+        y = y_data.get_mutable_value()
+        # scale the joint torque as well
+        y[:] = state
+        # y[:] = self.expand_joints(state, no_bias=True)  # [state[idx] for idx in self.actuator_index]
 
-            # For singularities:
-            # WARNING: Jv_TP dropping rank (beyond redundancy) will cause this
-            # stuff to explode. Should look at nasa jsc code or Khatib '87 for
-            # pointers on how to more intelligently avoid, maybe?
-            # Below can fudge things, but may induce a loss of tracking.
-            nt = 6
-            t_fudge = 0.01 * np.eye(nt)
+    def DoCalcDiscreteVariableUpdates(self, context, events, discrete_state):
+        LeafSystem.DoCalcDiscreteVariableUpdates(self, context, events, discrete_state)
 
-            # TODO(eric.cousineau): Rewrite w/ more friendly inversions.
-            inv = np.linalg.inv
-            Mtinv = Jt @ inv(M) @ Jt.T  # eq 18
-            Mt = inv(Mtinv + t_fudge)  # regularization
-            Jtbar = inv(M) @ Jt.T @ Mt
-            Nt_T = np.eye(ndof) - Jt.T @ Jtbar.T
-            Ct = Jtbar.T @ C - Mt @ Jtdot_v  # eq 24
-            tau_gt = Jtbar.T @ tau_g  # virtual work
+        # read input ports
+        x = self.robot_state_input_port.Eval(context)
+        q_cmd = self.joint_angle_commanded_input_port.Eval(context)
 
-            # N.B. This do not currently add M*vdot for task or joint
-            # centering.
-            # TODO(eric.cousineau): Add in inertial term when computing finite
-            # diff of V_TPdes.
+        # conversion
+        q_cmd = self.expand_joints(q_cmd)
 
-            # # Task-space control.
-            Ft_feedback = (  # desired behavior when being exerted force
-                Mt @ self.pose_feedback(X_TP, V_TP, X_TPdes, V_TPdes).get_coeffs()
+        tau_ff = self.tau_feedforward_input_port.Eval(context)
+        q = x[: self.nq]
+        # For some reason, the order of the state output port is different from the order defined in urdf
+        q[0:3] = [q[1], q[2], q[0]]
+        v = x[self.nq :]
+        v[0:3] = [v[1], v[2], v[0]]
+
+        # estimate velocity
+        if self.q_prev is None:
+            self.velocity_estimator.update(np.zeros(self.nv))
+        else:
+            # low pass filter velocity.
+            v_diff = (q - self.q_prev) / self.control_period
+            self.velocity_estimator.update(v_diff)
+
+        self.q_prev = q
+        # v_est = self.velocity_estimator.get_current_state()
+
+        # log the P and D parts of desired acceleration
+        self.sample_times.append(context.get_time())
+
+        # update plant context
+        self.plant.SetPositions(self.context, self.model_instance, q)
+        # self.plant.SetVelocities(self.context, v_est)
+
+        # gravity compenstation
+        tau_g = self.plant.CalcGravityGeneralizedForces(self.context)
+
+        tau = -tau_g[self.dofs.v]
+        self.debug_count += 1
+
+        if self.controller_mode == "impedance":
+            # temp = np.array([q[2], q[0], q[1]])
+            # q[0:3] = temp
+            tau_stiffness = self.Kp * (q_cmd - q)
+            tau_damping = -self.Kv * v
+            tau += tau_damping + tau_stiffness
+
+            # self.Kv_log.append(Kv)
+            self.tau_stiffness_log.append(tau_stiffness.copy())
+            self.tau_damping_log.append(tau_damping.copy())
+            
+            # print(f"debug count: {self.debug_count}")
+
+            # for debug_j in range(self.nq):
+            #     print(
+            #         f"debug joint {debug_j}: q: {q[debug_j]:.3f} desired_q: {q_cmd[debug_j]:.3f} output torque: {tau[debug_j]:.3f}"
+            #     )
+            # q does not change seems to be the problem
+            # q is constant
+            # import pdf; pdb.set_trace()
+
+        elif self.controller_mode == "inverse_dynamics":
+            # compute desired acceleration
+            qDDt_d = self.Kp * (q_cmd - q) + self.Kv * (-v)
+            # print(qDDt_d)
+            tau = self.plant.CalcInverseDynamics(
+                context=self.context, known_vdot=qDDt_d, external_forces=MultibodyForces(self.plant)
             )
-            Ft_feedforward = Ct - tau_gt  # cancel out dynamics
-            # - Use task-space inverse dynamics.
-            # N.B. Simulation seems to go unstable if not using task-space
-            # inertial scaling.
-            Ft = Ft_feedback + Ft_feedforward
+            # for debug_j in range(self.nq):
+            #     print(
+            #         f"debug joint {debug_j}: q: {q[debug_j]:.3f} desired_q: {q_cmd[debug_j]:.3f} output torque: {tau[debug_j]:.3f}"
+            #     )
 
-            # Posture regularization.
-            # N.B. Because Jp = I, we don't need any projected dynamics.
-            Jp = np.eye(ndof)
-            Mp = M
-            Cp = C
-            tau_gp = tau_g
+        output = discrete_state.get_mutable_vector().get_mutable_value()
+        output[:] = tau
 
-            # - Use task-space inverse dynamics.
-            Fp_feedback = Mp @ self.scaled_joint_feedback(q, v, q0, v0)
-            Fp_feedforward = Cp - tau_gp
-            Fp = Fp_feedback + Fp_feedforward
+    def get_input_port_estimated_state(self):
+        return self.robot_state_input_port
 
-            # Combined joint-space control.
-            ut = Jt.T @ Ft
-            up = Nt_T @ Jp.T @ Fp  # null space part in the joint space eq 55
-            # up = Jp.T @ Fp  # joint-space alone.
+    def get_input_port_desired_state(self):
+        return self.joint_angle_commanded_input_port
 
-            u = ut + up
-            # https://github.com/rachelholladay/franka_ros_interface/blob/fdbc28bf78e1f7eaa1ff627e1a34be72fafbdedc/franka_ros_controllers/src/cartesian_impedance_controller.cpp#L192
+    def get_output_port_control(self):
+        return self.joint_torque_output_port
 
-            # # Inverse Dynamics. (Feedback linearization?)
-            # vd = scaled_joint_feedback(q, v, q0, v0)
-            # u = M @ vd + C - tau_g
-
-            # # Very simple joint feedback.
-            # u = direct_joint_feedback(q, v, q0, v0) - tau_g
-
-            # TODO(eric.cousineau): Implement as QP for joint position,
-            # velocity, accel, and torque limits. May need CBF?
-            # assert_values_within_limits(q, v, u)
-
-            # if FIX_FINGER:
-            #     # print("finger torque:", u[-2:])
-            #     u[-2:] = -100
-            return u
-
-        self.plant_state_input = self.DeclareVectorInputPort("plant_state", nx)
-        X_TPdes_input = self.DeclareAbstractInputPort("X_TPdes", Value[RigidTransform]())
-        V_TPdes_input = self.DeclareAbstractInputPort("V_TPdes", Value[SpatialVelocity]())
-        self.pose_inputs = PoseReferenceInputPorts(
-            frames=PoseFrames(frame_T=frame_T, frame_P=frame_P),
-            X_TPdes=X_TPdes_input,
-            V_TPdes=V_TPdes_input,
-        )
-
-        def control_calc(sys_context, output):
-            x = self.plant_state_input.Eval(sys_context)
-            plant.SetPositionsAndVelocities(context, model_instance, x)
-            X_TPdes = self.pose_inputs.X_TPdes.Eval(sys_context)
-            V_TPdes = self.pose_inputs.V_TPdes.Eval(sys_context)
-            u = control_math(X_TPdes, V_TPdes)
-            output.set_value(u)
-
-        # self.torques_output = self.DeclareVectorOutputPort("torques_output", size=nu, calc=control_calc)
-        self.torques_output = self.DeclareVectorOutputPort("torques_output", size=nu, calc=control_calc)
-
-        self._plant = plant
-        self._model_instance = model_instance
-        self.V_TPdes_input = V_TPdes_input
-        self.X_TPdes_input = X_TPdes_input
-
-    def set_joint_stiffness(self, mode="stiff"):
-        if mode == "very_stiff":
-            kpp = 400.0
-            kdp = 40.0
-
-        if mode == "stiff":
-            kpp = 100.0
-            kdp = 20.0
-        # # Less stiff.
-
-        if mode == "normal":
-            kpp = 50.0
-            kdp = 12.0
-
-        # # Wiggly.
-        if mode == "compliant":
-            kpp = 5.0
-            kdp = 1.0
-
-        self.scaled_joint_feedback = JointFeeback(Kp=kpp, Kd=kdp)
-
-    def makeJointFeeback(self, kpp, kdp):
-        self.scaled_joint_feedback = JointFeeback(Kp=kpp, Kd=kdp)
-
-    def set_pose_stiffness(self, parameters=[100, 20, 100, 20]):
-        (kpt_xyz, kdt_xyz, kpt_rot, kdt_rot) = parameters
-        self.pose_feedback = PoseFeedback(
-            kp_xyz=kpt_xyz,
-            kd_xyz=kdt_xyz,  # lambda R_TP:
-            kp_rot=kpt_rot,
-            kd_rot=kdt_rot,  # lambda R_TP:
-        )
-
-    def get_plant_state_input_port(self):
-        return self.plant_state_input
-
-    def get_velocity_desired_port(self):
-        return self.V_TPdes_input
-
-    def get_state_desired_port(self):
-        return self.X_TPdes_input
-
-    @staticmethod
-    def AddToBuilder(builder, controller):
-        plant = controller._plant
-        model_instance = controller._model_instance
-
-        builder.AddSystem(controller)
-        builder.Connect(
-            plant.get_state_output_port(model_instance),
-            controller.plant_state_input,
-        )
-        builder.Connect(
-            controller.torques_output,
-            plant.get_actuation_input_port(model_instance),
-        )
+    def get_torque_feedforward_port_control(self):
+        return self.tau_feedforward_input_port
