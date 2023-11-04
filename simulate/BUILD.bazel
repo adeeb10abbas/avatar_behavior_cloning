@@ -5,7 +5,7 @@ load(
     "drake_py_library",
     "drake_py_test",
 )
-
+load("@ros2//:ros_py.bzl", "ros_py_binary", "ros_py_test")
 load("@pip//:requirements.bzl", "requirement")
 
 py_library(
@@ -20,9 +20,16 @@ py_binary(
     srcs = ["avatar_simple_py.py"],
     data = ["//data:avatar_models"],
     deps = [
+    "@ros2//:rclpy_py",
+    "@ros2//:std_msgs_py",
+    "@ros2//:geometry_msgs_py",
+    "@ros2//:sensor_msgs_py",
+
     requirement("numpy"),
     requirement("pydot"),
     requirement("argparse"),
+    requirement("matplotlib"),
+    requirement("scipy"),
     "@drake//bindings/pydrake:pydrake",
     "//utils:all_utils",
     "//utils:geometry_utils",
