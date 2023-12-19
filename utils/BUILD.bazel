@@ -29,11 +29,25 @@ py_library(
   visibility = ["//visibility:public"],
 )
 
+py_library(
+  name = "teleop_utils",
+  srcs = ["teleop_utils.py"],
+  deps = [
+    ":geometry_utils",
+    requirement("numpy"),
+    requirement("matplotlib"),
+    requirement("transforms3d"),
+    requirement("opencv-python"),
+    "@pytorch",
+    "@drake//bindings/pydrake:pydrake",],
+)
+
 # rollup of the whole library 
 py_library(
   name = "all_utils",
   deps = [
     ":geometry_utils",
+    ":teleop_utils",
   ],
   visibility = ["//visibility:public"],
 )
