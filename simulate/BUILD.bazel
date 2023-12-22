@@ -61,6 +61,7 @@ py_binary(
     "//utils:geometry_utils",
     "//controllers:impedance_controller_avatar_hand",
     "//controllers:spatialstiffness_controller_avatar_arm",
+    "//envs:avatar_drake_env",
     ],
     visibility = ["//visibility:public"],
 )
