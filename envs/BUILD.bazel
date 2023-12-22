@@ -1,0 +1,39 @@
+load("@ros2//:ros_py.bzl", "ros_py_binary", "ros_py_test")
+load("@pip//:requirements.bzl", "requirement")
+py_library(
+  name = "module_py",
+  srcs = ["__init__.py"],
+)
+ros_py_binary(
+    name = "avatar_drake_env",
+    srcs = ["avatar_drake_env.py"],
+    data = ["//data:avatar_models"],
+    deps = [
+    "@ros2//:rclpy_py",
+    "@ros2//:std_msgs_py",
+    "@ros2//:geometry_msgs_py",
+    "@ros2//:sensor_msgs_py",
+    requirement("numpy"),
+    requirement("pydot"),
+    requirement("cairosvg"),
+    requirement("argparse"),
+    requirement("matplotlib"),
+    requirement("scipy"),
+    requirement("graphviz"),
+    "@drake//bindings/pydrake:pydrake",
+    "//nodes:ros_teleop_data_receiver_py",
+    "//utils:all_utils",
+    "//utils:geometry_utils",
+    "//controllers:impedance_controller_avatar_hand",
+    "//controllers:spatialstiffness_controller_avatar_arm",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "envs",
+    srcs = glob(["*.py"]),
+    deps = [   
+      ],
+    visibility = ["//visibility:public"],
+  )
