@@ -15,3 +15,10 @@ This project entails implementing diffusion policy based BC on the avatar platfo
 
 ### Coupling Control Flow Diagram
 ![Coupling Control Flow Diagram](media/coupling_control_flow.png)
+
+## ROS2 Avatar Repos 
+
+- [rdda_avatar](https://github.com/adeeb10abbas/rdda_avatar)
+- [rdda_interface_types](https://github.com/adeeb10abbas/rdda_interface_types)
+- [smarty_arm_interface](https://github.com/adeeb10abbas/smarty_arm_interface)
+- [smarty_arm_msg](https://github.com/adeeb10abbas/smarty_arm_msg)
