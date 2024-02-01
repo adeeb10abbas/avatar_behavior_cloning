@@ -175,13 +175,13 @@ class AvatarDrakeEnv:
 
     ## Left Arm + Hand
     self.plant.WeldFrames(self.plant.world_frame(), self.plant.GetFrameByName("left_panda_link0"),
-                    RigidTransform(RollPitchYaw(0,0,0), [0.06975, -0.27, 0.5]))
+                    RigidTransform(RollPitchYaw(0,0,0), [0.06975, 0.27, 0.5]))
 
     self.plant.WeldFrames(self.plant.GetFrameByName("left_panda_link8"), self.plant.GetFrameByName("left_gripper_base"),
                     RigidTransform(RollPitchYaw(0, 3.141592653589793, -0.7853981633974483), [0.0, 0.0, 0.0]))
     ## Right Arm + Hand
     self.plant.WeldFrames(self.plant.world_frame(), self.plant.GetFrameByName("right_panda_link0"),
-                    RigidTransform(RollPitchYaw(0,0,0), [0.06975, 0.27, 0.5]))
+                    RigidTransform(RollPitchYaw(0,0,0), [0.06975, -0.27, 0.5]))
 
     self.plant.WeldFrames(self.plant.GetFrameByName("right_panda_link8"), self.plant.GetFrameByName("right_gripper_base"),
                         RigidTransform(RollPitchYaw(0, 3.141592653589793, -0.7853981633974483), [0.0, 0.0, 0.0]))
@@ -462,7 +462,7 @@ class AvatarDrakeEnv:
     print(f"desired_{arm_name}_arm: ", desired_eff_pose)
     print(f"desired_{arm_name}_hand: ", desired_hand_state)
 
-    endeffector_trans = desired_eff_pose[:3] + np.array([0.4, -0.1, 0.3])  # Adjust as needed
+    endeffector_trans = desired_eff_pose[:3] + np.array([0.4, 0.1, 0.3])  # Adjust as needed
 
     rot_relative = scipy.spatial.transform.Rotation.from_quat(desired_eff_pose[3:])
     rot = rot_relative * rot_init
@@ -486,7 +486,6 @@ class AvatarDrakeEnv:
   def process_keyboard(self, arm_name, context, rot_init, joint_pos_lower_limit, joint_pos_upper_limit):
         ## Do this for both arms 
         action, finger = get_keyboard_input()
-        breakpoint()
         # endeffector_trans += action[:3]
         # endeffector_rot += action[3:]
 
@@ -544,7 +543,7 @@ class AvatarDrakeEnv:
     self.desired_eff_pose[6] = 1.0
     rot_init = scipy.spatial.transform.Rotation.from_euler('xyz', [1.57, 1.57, 0.0])
 
-    if self.motion != 'arm_teleop':
+    if self.motion == 'arm_teleop':
         while rclpy.ok():
             self.process_arm("left", self.ros_teleop_data_receiver_left, context, rot_init, joint_pos_lower_limit, joint_pos_upper_limit)
             self.process_arm("right", self.ros_teleop_data_receiver_right, context, rot_init, joint_pos_lower_limit, joint_pos_upper_limit)

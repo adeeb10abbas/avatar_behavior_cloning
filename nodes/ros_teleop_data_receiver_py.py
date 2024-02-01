@@ -19,12 +19,12 @@ class RosTeleopDataReceiver(Node):
             JointState,
             joint_state_topic,
             self.finger_state_callback,
-            100)
+            1000)
         self.subscription_eff_pose = self.create_subscription(
             Pose,
             arm_pose_topic,
             self.eff_pose_callback,
-            100)
+            1000)
         print(f"Subscribed to {joint_state_topic} and {arm_pose_topic}")
         
         self.subscription_joint_state  # prevent unused variable warning
@@ -47,19 +47,23 @@ class RosTeleopDataReceiver(Node):
 
             # Add Gaussian noise to the simulated finger positions
             noisy_finger_pos = simulated_finger_pos + np.random.normal(noise_mean, noise_std, size=simulated_finger_pos.shape)
-
             return noisy_finger_pos
+        
         return self.desired_finger_pos
     
     def get_eff_pose(self, mode="real"):
         if mode == "simulated":
             # Define simulated effector pose here
-            simulated_eff_pose = np.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0])  # Example simulated values
+            if self.side == "left":
+                simulated_eff_pose = np.array([0.1, 0.1, 0.1, -2.7, -1.5708, 1.5708, -2.0])
+            else:
+                simulated_eff_pose = np.array([0.1, 0.1, 0.1, -2.7, -1.5708, 1.5708, 0.4])
             noise_mean = 0.0
-            noise_std = 0.1  # Adjust the standard deviation as needed
+            noise_std = 0.001  # Adjust the standard deviation as needed
 
             # Add Gaussian noise to the simulated effector pose
             noisy_eff_pose = simulated_eff_pose + np.random.normal(noise_mean, noise_std, size=simulated_eff_pose.shape)
-
+            # noisy_eff_pose = simulated_eff_pose
             return noisy_eff_pose
+        
         return self.desired_eff_pose
