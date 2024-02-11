@@ -24,4 +24,4 @@ This project entails implementing diffusion policy based BC on the avatar platfo
 - [smarty_arm_interface](https://github.com/adeeb10abbas/smarty_arm_interface)
 - [smarty_arm_msg](https://github.com/adeeb10abbas/smarty_arm_msg)
 
-All the configs live [here]([url](https://gist.github.com/adeeb10abbas/1ba0c1a7bc7b804a6fb5804bd36cb3e5)https://gist.github.com/adeeb10abbas/1ba0c1a7bc7b804a6fb5804bd36cb3e5). Since everything is consolidated into one workstation it makes sense to keep stuff backed up and organized. 
+All the configs live [here](https://gist.github.com/adeeb10abbas/1ba0c1a7bc7b804a6fb5804bd36cb3e5). Since everything is consolidated into one workstation it makes sense to keep stuff backed up and organized. 
