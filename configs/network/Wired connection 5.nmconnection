@@ -1,0 +1,22 @@
+[connection]
+id=Wired connection 5
+uuid=c2373682-2a6e-31ae-bc71-f148df815166
+type=ethernet
+autoconnect-priority=-999
+interface-name=enx000ec682b118
+permissions=
+
+[ethernet]
+mac-address-blacklist=
+
+[ipv4]
+address1=10.103.1.65/8
+dns-search=
+method=manual
+
+[ipv6]
+addr-gen-mode=stable-privacy
+dns-search=
+method=auto
+
+[proxy]
