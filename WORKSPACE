@@ -126,7 +126,7 @@ ROS2_PACKAGES = [
 # Use ROS 2
 ros2_local_repository(
     name = "ros2",
-    workspaces = ["/opt/ros/humble",],
+    workspaces = ["/opt/ros/rolling",],
     include_packages = ROS2_PACKAGES,
 )
 
