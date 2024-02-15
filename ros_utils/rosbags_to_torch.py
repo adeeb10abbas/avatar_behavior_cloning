@@ -13,6 +13,9 @@ from rosgraph_msgs.msg import Clock
 from functools import partial
 import numpy as np
 
+## Custom 
+from rdda_interface.msg import RDDAPacket
+
 # Function to convert sensor_msgs/Image to a PyTorch tensor
 def image_to_tensor(image_msg):
     bridge = CvBridge()
@@ -45,10 +48,21 @@ def arm_pose_to_tensor(pose_msg, side):
 left_arm_pose_handler = partial(arm_pose_to_tensor, side="left")
 right_arm_pose_handler = partial(arm_pose_to_tensor, side="right")
 
-def save_tensors_as_pickle(data_tensors, output_file):
-    with open(output_file, 'wb') as f:
-        pickle.dump(data_tensors, f)
-    print(f"Data saved to {output_file}")
+def rdda_packet_to_tensor(rdda_packet):
+    # Convert the arrays from the RDDAPacket to PyTorch tensors
+    pos_tensor = torch.tensor(rdda_packet.pos, dtype=torch.float32)
+    vel_tensor = torch.tensor(rdda_packet.vel, dtype=torch.float32)
+    tau_tensor = torch.tensor(rdda_packet.tau, dtype=torch.float32)
+    wave_tensor = torch.tensor(rdda_packet.wave, dtype=torch.float32)
+    wave_aux_tensor = torch.tensor(rdda_packet.wave_aux, dtype=torch.float32)
+    pressure_tensor = torch.tensor(rdda_packet.pressure, dtype=torch.float32)
+    
+    # Concatenate all tensors into one tensor
+    all_tensors = torch.cat([pos_tensor, vel_tensor, tau_tensor, wave_tensor, wave_aux_tensor, pressure_tensor], dim=0)
+    
+    return all_tensors
+
+
 
 topic_handlers = {
     "/camera/color/image_raw": image_to_tensor,
@@ -56,7 +70,14 @@ topic_handlers = {
     "/left_arm_pose": left_arm_pose_handler,
     "/right_glove_joint_states": right_glove_handler,
     "/left_glove_joint_states": left_glove_handler,
+    "/rdda_right_master_output": rdda_packet_to_tensor, 
+    "/rdda_left_master_output": rdda_packet_to_tensor,
 }
+def save_tensors_as_pickle(data_tensors, output_file):
+    with open(output_file, 'wb') as f:
+        pickle.dump(data_tensors, f)
+    print(f"Data saved to {output_file}")
+
 # # Adjust this function for different ROS message types
 def extract_data_from_bag(bag_path):
     data_tensors = {}
