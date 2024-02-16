@@ -1,1 +1,67 @@
 Hosts standalone ros1 noetic utilities used in this project. 
+
+List of topics we're interested in - 
+
+/camera/color/image_raw : sensor_msgs/Image
+
+
+/clock : rosgraph_msgs/Clock
+/pti_interface_right/joint_states : sensor_msgs/JointState
+
+/pti_interface_right/panda_info : franka_control/PInfo 
+int32 slow_catching_index
+float64 external_load_mass
+
+/pti_interface_right/pti_output : franka_control/PTIPacket
+float64[] wave
+geometry_msgs/Point position
+geometry_msgs/Point angle
+geometry_msgs/Twist twist
+geometry_msgs/Quaternion quat
+float64[] test
+
+float64 local_stamp
+float64 remote_stamp
+
+float64[] est_ext_force
+float64 robot_translation_mass
+geometry_msgs/Point position_d
+
+
+/rdda_right_master_input : rdda_interface/RDDAPacket
+/rdda_right_master_output : rdda_interface/RDDAPacket
+float64[] pos
+float64[] vel
+float64[] tau
+float64[] wave
+float64[] wave_aux
+float64[] pressure
+int32[] contact_flag
+float64[] test
+int16 error_signal
+float64 local_stamp
+float64 remote_stamp
+float64 time_delay
+float64[] delay_energy_reservior
+float64[] pos_d
+float64[] energy
+float64[] ct
+
+/right_arm_pose : geometry_msgs/Pose
+/right_glove_joint_states : sensor_msgs/JointState
+/right_gripper_joint_states : sensor_msgs/JointState
+
+/right_smarty_arm_output : smarty_arm_interface/PTIPacket
+float64[] wave
+geometry_msgs/Point position
+geometry_msgs/Point angle
+geometry_msgs/Twist twist
+geometry_msgs/Quaternion quat
+float64[] test
+
+float64 local_stamp
+float64 remote_stamp
+
+float64[] est_ext_force
+float64 robot_translation_mass
+geometry_msgs/Point position_d
