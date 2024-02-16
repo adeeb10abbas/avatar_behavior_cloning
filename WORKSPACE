@@ -156,6 +156,6 @@ load("@pip//:requirements.bzl", "install_deps")
 install_deps()
 ## End Python Stuff ##
 
-###### Adding Pytorch ######
-load("//tools/workspace:default.bzl", "add_pytorch")
-add_pytorch()
+###### Adding essentials ######
+load("//tools/workspace:default.bzl", "add_essentials")
+add_essentials()
