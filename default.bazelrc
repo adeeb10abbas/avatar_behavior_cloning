@@ -1,7 +1,7 @@
 #Taken from drake-ros - https://github.com/RobotLocomotion/drake-ros/blob/198c3892874c14c5e1eee0a3f7520f835c07f9fb/default.bazelrc
 # Use C++17.
-build --cxxopt=-std=c++20
-build --host_cxxopt=-std=c++20
+build --cxxopt=-std=c++17
+build --host_cxxopt=-std=c++17
 
 # Use Python 3.
 build --python_path=/usr/bin/python3
