@@ -97,10 +97,26 @@ git_repository(
     remote = "https://github.com/RobotLocomotion/drake-ros.git",
 )
 
+git_repository(
+    name = "ros2_example_bazel_installed",
+    commit = DRAKE_ROS_commit,
+    strip_prefix = "ros2_example_bazel_installed",
+    remote = "https://github.com/RobotLocomotion/drake-ros.git",
+)
+
 load("@bazel_ros2_rules//deps:defs.bzl", "add_bazel_ros2_rules_dependencies")
 add_bazel_ros2_rules_dependencies()
+load("@ros2_example_bazel_installed//tools:environ.bzl", "environment_repository")
 
-load("@bazel_ros2_rules//ros2:defs.bzl", "ros2_local_repository")
+environment_repository(
+    name = "ros2_example_bazel_installed_environ",
+    envvars = ["ROS2_DISTRO_PREFIX"],
+)
+load(
+    "@ros2_example_bazel_installed_environ//:environ.bzl",
+    "ROS2_DISTRO_PREFIX",
+)
+load("@bazel_ros2_rules//ros2:defs.bzl", "ros2_local_repository", "ros2_archive")
 
 ROS2_PACKAGES = [
     "action_msgs",
@@ -119,16 +135,35 @@ ROS2_PACKAGES = [
 ] + [
     # These are possible RMW implementations. Uncomment one and only one to
     # change implementations
-    #"rmw_cyclonedds_cpp",
-    "rmw_fastrtps_cpp",
+    "rmw_cyclonedds_cpp",
+    # "rmw_fastrtps_cpp",
 ]
+
 
 # Use ROS 2
 ros2_local_repository(
     name = "ros2",
-    workspaces = ["/opt/ros/rolling",],
+    workspaces = [ROS2_DISTRO_PREFIX],
     include_packages = ROS2_PACKAGES,
 )
+## Likely not recommended to use unless you know what's happening here. ##
+# ros2_archive(
+#     name = "ros2" if not ROS2_DISTRO_PREFIX else "ros2_ignored",
+#     include_packages = ROS2_PACKAGES,
+#     sha256_url = "https://repo.ros2.org/ci_archives/nightly-cyclonedds/ros2-humble-linux-jammy-amd64-ci-CHECKSUM",  # noqa
+#     strip_prefix = "ros2-linux",
+#     url = "http://repo.ros2.org/ci_archives/nightly-cyclonedds/ros2-humble-linux-jammy-amd64-ci.tar.bz2",  # noqa
+# )
+
+# Uncomment to use humble on Focal
+# ros2_archive(
+#     name = "ros2", #if not ROS2_DISTRO_PREFIX else "ros2_ignored",
+#     include_packages = ROS2_PACKAGES,
+#     sha256_url = "https://repo.ros2.org/ci_archives/drake-ros-underlay/ros2-humble-linux-focal-amd64-ci-CHECKSUM",  # noqa
+#     strip_prefix = "ros2-linux",
+#     url = "https://repo.ros2.org/ci_archives/drake-ros-underlay/ros2-humble-linux-focal-amd64-ci.tar.bz2",  # noqa
+# )
+
 
 ## Additional Libraries ## See list here: https://github.com/mjbots/bazel_deps
 load("//tools/workspace:default.bzl", "add_default_repositories")
