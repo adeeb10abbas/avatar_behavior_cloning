@@ -1,0 +1,6 @@
+observations:
+  - rdda_right_master_output: 15
+  - image_raw: 720
+actions:
+  - right_arm_pose: 7
+  - right_glove_joint_states: 9

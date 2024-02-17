@@ -65,3 +65,17 @@ float64 remote_stamp
 float64[] est_ext_force
 float64 robot_translation_mass
 geometry_msgs/Point position_d
+
+observations 
+        - images
+        - haptics   - right - [pos_tensor, vel_tensor, tau_tensor, wave_tensor, pressure_tensor]
+                    - left  - [pos_tensor, vel_tensor, tau_tensor, wave_tensor, pressure_tensor]
+actions 
+        - pose (franka is controlled via cartesian coordinates)
+            --left_arm_pose
+            --right_arm_pose
+        - joint_state
+            --left_glove
+            --right_glove
+            
+prediction is the same as actions. 
