@@ -65,13 +65,13 @@ def rdda_packet_to_tensor(rdda_packet):
 
 
 topic_handlers = {
-    "/camera/color/image_raw": image_to_tensor,
-    "/right_arm_pose": right_arm_pose_handler,
-    "/left_arm_pose": left_arm_pose_handler,
-    "/right_glove_joint_states": right_glove_handler,
-    "/left_glove_joint_states": left_glove_handler,
-    "/rdda_right_master_output": rdda_packet_to_tensor, 
-    "/rdda_left_master_output": rdda_packet_to_tensor,
+    "/camera/color/image_raw": image_to_tensor, # obs
+    "/right_arm_pose": right_arm_pose_handler, # action
+    "/left_arm_pose": left_arm_pose_handler, # action
+    "/right_glove_joint_states": right_glove_handler, # action 
+    "/left_glove_joint_states": left_glove_handler, # action
+    "/rdda_right_master_output": rdda_packet_to_tensor, # obs
+    "/rdda_left_master_output": rdda_packet_to_tensor, # obs 
 }
 def save_tensors_as_pickle(data_tensors, output_file):
     with open(output_file, 'wb') as f:
