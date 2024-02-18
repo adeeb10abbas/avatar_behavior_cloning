@@ -1,6 +1,6 @@
 **/logs
 bazel-*
 **/__pycache__/
-
+**/*.pkl
 # User-specified configuration
 **/**/user.bazelrc

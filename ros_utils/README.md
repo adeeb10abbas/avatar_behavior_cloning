@@ -71,11 +71,46 @@ observations
         - haptics   - right - [pos_tensor, vel_tensor, tau_tensor, wave_tensor, pressure_tensor]
                     - left  - [pos_tensor, vel_tensor, tau_tensor, wave_tensor, pressure_tensor]
 actions 
-        - pose (franka is controlled via cartesian coordinates)
+        - pose (franka is controlled via cartesian coordinates) (teleop side)
             --left_arm_pose
             --right_arm_pose
         - joint_state
             --left_glove
             --right_glove
-            
-prediction is the same as actions. 
+
+structure 
+```
++-- root (pickle file)
+    |
+    +-- 'observations' (Tensor)
+    |   |
+    |   +-- [Batch Size, Feature Dimension]
+    |       |
+    |       +-- Features concatenated from:
+    |           |
+    |           +-- Image data (flattened or feature extracted)
+    |           +-- Haptic data from right glove
+    |           +-- Haptic data from left glove
+    |
+    +-- 'actions' (Tensor)
+        |
+        +-- [Batch Size, Action Dimension]
+            |
+            +-- Actions concatenated from:
+                |
+                +-- Pose from right arm
+                +-- Pose from left arm
+                +-- joint state data from right glove
+                +-- joint state data from left glove
+```
+
+
+Camera setup - 
+-  right wrist - 108222250646
+    ```
+    roslaunch realsense2_camera rs_camera.launch camera:=cam_right_wrist serial_no:=108222250646
+    ```
+-  left wrist - 105322250285
+    ```
+    roslaunch realsense2_camera rs_camera.launch camera:=cam_left_wrist serial_no:=105322250285
+    ```
