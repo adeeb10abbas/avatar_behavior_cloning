@@ -114,4 +114,3 @@ Camera setup -
     ```
     roslaunch realsense2_camera rs_camera.launch camera:=cam_left_wrist serial_no:=105322250285
     ```
-```
