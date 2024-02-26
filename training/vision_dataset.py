@@ -59,7 +59,6 @@ class ImageHapticsDataset(torch.utils.data.Dataset):
         self.indices = create_sample_indices(episode_ends, pred_horizon, obs_horizon-1, action_horizon-1)
         # print(self.haptics[key].shape, self.poses[key].shape, self.gloves[key].shape)
 
-        breakpoint()
         self.stats = {key: get_data_stats(np.concatenate((self.haptics[key], self.poses[key], self.gloves[key]), axis=1)) for key in ['right', 'left']}
         self.normalized_data = {key: normalize_data(np.concatenate((self.haptics[key], self.poses[key], self.gloves[key]), axis=1), self.stats[key]) for key in ['right', 'left']}
 
