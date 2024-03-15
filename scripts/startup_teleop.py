@@ -65,16 +65,19 @@ signal.signal(signal.SIGTERM, signal_handler)
 
 # Start processes
 start_process("sudo ~/avatar/ws/src/RDDA/build/rdda_master left_glove", "left_glove")
-#start_process("sudo ~/avatar/ws/src/RDDA/build/rdda_master right_glove", "right_glove")
+start_process("sudo ~/avatar/ws/src/RDDA/build/rdda_master right_glove", "right_glove")
+start_process("sudo smarty_arm_control l", "left_arm")
+start_process("sudo smarty_arm_control r", "right_arm")
+
+# time.sleep(5)  # Wait for the arms to start
+print("Press enter to start teleop")
+input("Waiting...")
 
 start_process("roslaunch rdda_interface rdda_interface.launch rdda_type:=left_glove", "lgi")
-#start_process("roslaunch rdda_interface rdda_interface.launch rdda_type:=right_glove", "rgi")
+start_process("roslaunch rdda_interface rdda_interface.launch rdda_type:=right_glove", "rgi")
 
-#start_process("sudo smarty_arm_control l", "left_arm")
-#start_process("sudo smarty_arm_control r", "right_arm")
-
-#start_process("roslaunch smarty_arm_interface smarty_arm_interface.launch smarty_arm_type:=l", "lsai")
-#start_process("roslaunch smarty_arm_interface smarty_arm_interface.launch smarty_arm_type:=r", "rsai")
+start_process("roslaunch smarty_arm_interface smarty_arm_interface.launch smarty_arm_type:=l", "lsai")
+start_process("roslaunch smarty_arm_interface smarty_arm_interface.launch smarty_arm_type:=r", "rsai")
 
 # Periodically check if each process is alive
 while True:
