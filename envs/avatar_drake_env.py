@@ -32,7 +32,7 @@ class AvatarDrakeEnv:
     self.executor_thread.start()
     ############################################# 
     # Set up parameters
-    self.timestep = timestep
+    self.timestep = 0.1
     self.motion = "arm_teleop"
     self.teleop_type = teleop_type
     self.debug = debug
@@ -45,9 +45,9 @@ class AvatarDrakeEnv:
                       "q1":   [0.1, 0.1, -0.5, -2.356, 0.0, 0, 0.785],
                       "q2":   [1.0, 0.5, -1.1, -2.356, 0.0, 0, 0.785]}
     self.panda_joints = 7
-    self.panda_kp = [5000] * self.panda_joints
+    self.panda_kp = [5] * self.panda_joints
     self.panda_ki = [1] *  self.panda_joints
-    self.panda_kd = [100] * self.panda_joints
+    self.panda_kd = [1] * self.panda_joints
 
     # Change this to 3 if using mimic
     self.hand_controller_type = hand_controller_type
@@ -73,7 +73,7 @@ class AvatarDrakeEnv:
     # Initialize
     self.meshcat = StartMeshcat()
     self.builder = DiagramBuilder()
-    self.multibody_plant_config = MultibodyPlantConfig(time_step=self.timestep, discrete_contact_solver="sap")
+    self.multibody_plant_config = MultibodyPlantConfig(time_step=self.timestep) # discrete_contact_solver="sap"
     self.plant, self.scene_graph = AddMultibodyPlant(config=self.multibody_plant_config, builder=self.builder)
     self.parser = Parser(self.plant)
     # separate plant for controller
@@ -219,11 +219,11 @@ class AvatarDrakeEnv:
         hand_spatial_inertial
     )
     
-    self.left_controller_plant.WeldFrames(
-        self.left_controller_plant.GetFrameByName("left_panda_link8"),
-        left_equivalent_body.body_frame(), 
-        RigidTransform(RollPitchYaw(np.pi, 0, 3*np.pi/4), [0.0, 0, 0.0])
-    )
+    # self.left_controller_plant.WeldFrames(
+    #     self.left_controller_plant.GetFrameByName("left_panda_link8"),
+    #     left_equivalent_body.body_frame(), 
+    #     RigidTransform(RollPitchYaw(np.pi, 0, 3*np.pi/4), [0.0, 0, 0.0])
+    # )
     self.left_controller_plant.set_name('left_controller_plant')
     self.left_controller_plant.Finalize()
     # left hand's q is 7
@@ -231,10 +231,10 @@ class AvatarDrakeEnv:
 
     # Add model for right hand control
     self.right_controller_model = self.right_controller_parser.AddModelFromFile(self.right_panda_arm_urdf)
-    self.right_controller_plant.WeldFrames(
-        self.right_controller_plant.world_frame(), 
-        self.right_controller_plant.GetFrameByName("right_panda_link0")
-    )
+    # self.right_controller_plant.WeldFrames(
+    #     self.right_controller_plant.world_frame(), 
+    #     self.right_controller_plant.GetFrameByName("right_panda_link0")
+    # )
     
     right_equivalent_body  = self.right_controller_plant.AddRigidBody(
         "right_equivalent_body", 

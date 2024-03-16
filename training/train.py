@@ -2,8 +2,8 @@ import torch
 import numpy as np
 import pickle
 
-from vision_dataset import create_sample_indices, sample_sequence, get_data_stats, normalize_data, unnormalize_data
-from vision_dataset import ImageHapticsDataset
+from training.vision_dataset_py import create_sample_indices, sample_sequence, get_data_stats, normalize_data, unnormalize_data
+from training.vision_dataset_py import ImageHapticsDataset
 
 # Load the dataset
 dataset_path = 'complex_dummy_dataset.pkl'

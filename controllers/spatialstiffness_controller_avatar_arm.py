@@ -245,12 +245,12 @@ class PoseControllerAvatar(LeafSystem):
             kd_rot=kdt_rot,  # lambda R_TP:
         )
 
-        # Very stiff.
-        kpp = 200.0  # 100.0
-        kdp = 20.0
+        # Very stiff. 200
+        # kpp = 100.0  # 100.0
+        # kdp = 20.0
         # # Less stiff.
-        # kpp = 50.0
-        # kdp = 12.0
+        kpp = 50.0
+        kdp = 12.0
         # # Wiggly.
         # kpp = 5.0
         # kdp = 1.0
@@ -418,7 +418,7 @@ class PoseControllerAvatar(LeafSystem):
         self.V_TPdes_input = V_TPdes_input
         self.X_TPdes_input = X_TPdes_input
 
-    def set_joint_stiffness(self, mode="stiff"):
+    def set_joint_stiffness(self, mode="normal"):
         if mode == "very_stiff":
             kpp = 400.0
             kdp = 40.0
