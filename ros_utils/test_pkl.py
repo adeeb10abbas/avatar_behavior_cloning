@@ -6,6 +6,14 @@ def list_topics_and_counts_from_pickle(pickle_file_path):
     with open(pickle_file_path, 'rb') as f:
         data_tensors = pickle.load(f)
     
+    # Print the keys of the dictionary
+    print("Keys in the pickle file:")
+    for key in data_tensors.keys():
+        print(key)
+    # Print the shapes of the tensors
+    print("Shapes of the tensors:")
+    for tensor in data_tensors.values():
+        print(tensor.shape)
     # Initialize a dictionary to hold the count of tensors for observations and actions
     category_counts = {}
 
@@ -24,4 +32,7 @@ topic_counts = list_topics_and_counts_from_pickle(pickle_file_path)
 print("Categories and counts in the pickle file:")
 for topic, count in topic_counts.items():
     print(f"{topic}: {count} items")
+    # shapes 
+    # print(tensor.shape)
+    # print(tensor.shape[0])
 

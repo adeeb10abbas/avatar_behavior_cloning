@@ -1,6 +1,3 @@
-observations:
-  - rdda_right_master_output: 15
-  - image_raw: 720
-actions:
-  - right_arm_pose: 7
-  - right_glove_joint_states: 9
+version https://git-lfs.github.com/spec/v1
+oid sha256:e4897949d528fe11e3b1d5ac63cc7a3e639dd842ed7f33ec8a77dd9e12488b8d
+size 685
