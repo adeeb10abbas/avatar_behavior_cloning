@@ -188,7 +188,7 @@ def extract_and_concatenate_data_from_bag(bag_path, output_file, log_file_path):
                 tensor = topic_handlers[topic](msg, t=t)
                 if tensor is not None:
                     category = "observations" if topic in ["/usb_cam_left/image_raw", "/usb_cam_right/image_raw", "/usb_cam_table/image_raw", "/rdda_right_master_output", "/rdda_l_master_output"] else "actions"
-                    defined_key = f"{category}/{topic.replace('/', '_').strip('_')}"
+                    defined_key = f"{topic.replace('/', '_').strip('_')}"
                     data_structure[category][defined_key] = tensor
                     feature_log[category][defined_key] = tensor.shape
 

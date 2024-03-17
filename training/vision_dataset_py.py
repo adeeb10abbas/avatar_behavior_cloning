@@ -19,7 +19,7 @@ from typing_extensions import Unpack
 class ImageHapticsDataset(BaseImageDataset):
     def __init__(
         self,
-        dataset_path: str = "data.h5",
+        dataset_path: str,
         horizon: int = 1,
         pad_before: int = 0,
         pad_after: int = 0,
@@ -89,15 +89,13 @@ class ImageHapticsDataset(BaseImageDataset):
         action = sample[self.action_key]  # T, D_a
 
         data = {
-            'obs': obs_dict, # T
-            'action': action # T, 32
+            'observation': obs_dict, # T
+            'action': action # T, 
         }
         return data
     
     def __getitem__(self, idx: int):
-        sample = self.sampler[idx]
+        sample = self.sampler.sample_sequence(idx)
         data = self._sample_to_data(sample)
-        return data
+        return dict_apply(data, np.array)
     
-test_dataset = ImageHapticsDataset( dataset_path = '../ros_utils/structured_data.zarr')
-print(len(test_dataset))
