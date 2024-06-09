@@ -88,6 +88,7 @@ topic_handlers = {
     "/rdda_right_master_output": rdda_packet_to_tensor, # obs
     "/rdda_l_master_output": rdda_packet_to_tensor, # obs 
 }
+
 def save_tensors_as_pickle(data_tensors, output_file):
     with open(output_file, 'wb') as f:
         pickle.dump(data_tensors, f)
@@ -228,3 +229,6 @@ if __name__ == '__main__':
 #     log_file_path = 'feature_dimensions.log'  # File to save the log of feature dimensions
 
 #     extract_and_concatenate_data_from_bag(bag_path, log_file_path)
+
+
+
