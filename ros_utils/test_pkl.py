@@ -9,11 +9,13 @@ def list_topics_and_counts_from_pickle(pickle_file_path):
     # Print the keys of the dictionary
     print("Keys in the pickle file:")
     for key in data_tensors.keys():
-        print(key)
+        print(data_tensors[key])
+        breakpoint()
     # Print the shapes of the tensors
     print("Shapes of the tensors:")
     for tensor in data_tensors.values():
-        print(tensor.shape)
+        print(tensor)
+        breakpoint()
     # Initialize a dictionary to hold the count of tensors for observations and actions
     category_counts = {}
 
@@ -27,7 +29,7 @@ def list_topics_and_counts_from_pickle(pickle_file_path):
     return category_counts
 
 # Example usage
-pickle_file_path = 'concatenated_data.pkl'
+pickle_file_path = 'data.pkl'
 topic_counts = list_topics_and_counts_from_pickle(pickle_file_path)
 print("Categories and counts in the pickle file:")
 for topic, count in topic_counts.items():
