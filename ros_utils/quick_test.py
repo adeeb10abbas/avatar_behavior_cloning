@@ -13,6 +13,16 @@ def load_and_inspect_pkl(file_path):
             print(f"Category: {category}")
             # Iterate through each topic within the category
             for topic, tensors in topics.items():
+                if topic == "image_raw":
+                    print(f"  Topic: {topic}")
+                    # Check if there are tensors stored under the topic
+                    if tensors:
+                        print(f"    Total number of tensors: {len(tensors)}")
+                        # Print the dimensions of the first tensor for size reference
+                        print(f"    Tensor dimensions (example): {tensors[0].shape}")
+                    else:
+                        print("    No data available for this topic.")
+                    breakpoint()
                 print(f"  Topic: {topic}")
                 # Check if there are tensors stored under the topic
                 if tensors:

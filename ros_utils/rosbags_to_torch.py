@@ -67,7 +67,10 @@ def extract_and_organize_data_from_bag(bag_path, log_file_path, output_file="org
                     category = "observations" if topic in ["/usb_cam_left/image_raw", "/usb_cam_right/image_raw", 
                                                           "/usb_cam_table/image_raw", "/throttled_rdda_right_master_output", 
                                                           "/throttled_rdda_l_master_output"] else "actions"
-                    topic_key = topic.split("/")[-1]
+                    if "image" in topic:
+                        topic_key = topic.split("/")[1]
+                    else:
+                        topic_key = topic.split("/")[-1]
                     if topic_key not in data_structure[category]:
                         data_structure[category][topic_key] = []
                     data_structure[category][topic_key].append(tensor)
