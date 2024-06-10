@@ -1,3 +1,4 @@
 concatenated_data.pkl filter=lfs diff=lfs merge=lfs -text
 structured_data.h5 filter=lfs diff=lfs merge=lfs -text
 feature_dimensions.log filter=lfs diff=lfs merge=lfs -text
+organized_data.pkl filter=lfs diff=lfs merge=lfs -text

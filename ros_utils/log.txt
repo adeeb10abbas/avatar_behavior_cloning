@@ -1,5 +1,0 @@
-observations:
-  - image_raw: 480
-actions:
-  - throttled_rdda_right_master_output: 15
-  - right_smarty_arm_output: 7
