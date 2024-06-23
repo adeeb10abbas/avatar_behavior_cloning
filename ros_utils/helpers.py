@@ -41,17 +41,22 @@ def arm_pose_to_tensor(pose_msg, side, t):
     # breakpoint()
     return pose_tensor
 
-def rdda_packet_to_tensor(rdda_packet: RDDAPacket, t: Clock):
-    print("WE ARE GETTING HERE")
+def rdda_packet_to_tensor(rdda_packet: RDDAPacket, mode: str, t: Clock):
     pos_tensor = torch.tensor(rdda_packet.pos, dtype=torch.float32)
+    pos_desired_tensor = torch.tensor(rdda_packet.pos_d, dtype=torch.float32)
     vel_tensor = torch.tensor(rdda_packet.vel, dtype=torch.float32)
     tau_tensor = torch.tensor(rdda_packet.tau, dtype=torch.float32)
     wave_tensor = torch.tensor(rdda_packet.wave, dtype=torch.float32)
     pressure_tensor = torch.tensor(rdda_packet.pressure, dtype=torch.float32)
 
-
-    # Concatenation
-    all_tensors = torch.cat([pos_tensor, vel_tensor, tau_tensor, wave_tensor, pressure_tensor], dim=0)
-    print("rdda_all_tensors after concatenation shape:", all_tensors.shape)
+    if mode == "teacher":
+        # We don't feed haptics to the model, it's only supposed to be implicitly learned
+        obs_from_state = torch.cat([pos_tensor, vel_tensor, pos_desired_tensor], dim=0)
+        action_stuff = torch.cat([pos_desired_tensor, wave_tensor, pos_desired_tensor], dim=0)
+    elif mode == "policy":
+        obs_from_state = torch.cat([pos_tensor, vel_tensor, tau_tensor, pos_desired_tensor, wave_tensor], dim=0)
+        action_stuff = torch.cat([wave_tensor, pos_desired_tensor], dim=0)
+    
+    all_tensors = torch.vstack([obs_from_state, action_stuff])
     
     return all_tensors
