@@ -1,11 +1,10 @@
 import torch 
-_path = "/app/experimental_throttled/rethrottled_out.bag"
 
 import torch
 import rosbag
 import pickle
 from typing import Optional
-
+import os
 from sensor_msgs.msg import Image, JointState
 from geometry_msgs.msg import Point, Quaternion, Twist, Pose
 from cv_bridge import CvBridge
@@ -42,7 +41,7 @@ def concatenate_data(data_list, desired_len=256):
 
 # # Assuming other necessary imports and function definitions remain unchanged
 
-def extract_and_organize_data_from_bag(bag_path, mode, output_file="organized_data.pkl"):
+def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
     data_structure = {}
     left_arm_pose_handler = partial(arm_pose_to_tensor, side="left")
     right_arm_pose_handler = partial(arm_pose_to_tensor, side="right")
@@ -75,17 +74,19 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file="organized_da
                     data_structure[topic_key].append(tensor)
 
     # Saving the organized data without concatenation
-    with open(output_file, 'wb') as f:
+    with open(output_file_path, 'wb') as f:
         pickle.dump(data_structure, f)
-    print(f"Organized data saved to {output_file}")
+    print(f"Organized data saved to {output_file_path}")
     # print(f"Concatenated data and feature log extracted and saved to {output_file} and {log_file_path}, respectively.")
 
-def main(input_file, mode):
-    extract_and_organize_data_from_bag(input_file, mode = mode)
+def main(input_file, mode, output_file):
+    output_file_name = input_file.split("/")[-1].split(".")[0]
+    output_file_path = os.path.join(output_file, f"{output_file_name}.pkl")
+    extract_and_organize_data_from_bag(input_file, mode = mode, output_file_path = output_file_path)
     
 if __name__=="__main__":
     import sys
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 4:
         print("Usage: rosbags_to_torch.py <input_bag_file> <mode>")
         sys.exit(1)
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1], sys.argv[2], sys.argv[3])

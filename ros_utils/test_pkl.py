@@ -9,29 +9,14 @@ def load_and_inspect_pkl(file_path):
             data_structure = pickle.load(f)
 
         # Iterate through each category ('observations' and 'actions')
-        print("Just the items in the data_structure")
-        print(data_structure.keys())
-        print("-"*40)
-        
-        for category, topics in data_structure.items():
-            print(f"Category: {category}")
-            # Iterate through each topic within the category
-            for topic, tensors in topics.items():
-                # print(f"  Topic: {topic}")
-                print(f"  Topic: {topic}")
-                # Check if there are tensors stored under the topic
-                if tensors:
-                    print(f"    Total number of tensors: {len(tensors)}")
-                    # Print the dimensions of the first tensor for size reference
-                    print(f"    Tensor dimensions (example): {tensors[0].shape}")
-                else:
-                    print("    No data available for this topic.")
-            print()  # Newline for better readability between categories
-    except FileNotFoundError:
-        print(f"Error: The file '{file_path}' does not exist.")
-    except Exception as e:
-        print(f"An error occurred while loading or processing the file: {e}")
 
-# Replace 'your_data_file.pkl' with the actual path to your pickle file
-load_and_inspect_pkl('organized_data.pkl')
+        for i in data_structure.keys():
+            print(i)
+            print(len(data_structure[i]))
+            print(data_structure[i][0].shape)
+
+            print("-"*40)
+    except Exception as e:
+        pass
+load_and_inspect_pkl('/app/processed_bottle_pick_data/torch_output_policy_aware/2024-06-10-15-58-34.pkl')
 
