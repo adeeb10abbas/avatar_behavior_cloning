@@ -30,7 +30,8 @@ def main(input_pkl_file_path):
         # Prepare data to be saved in Zarr
         data_to_save = {}
         for key, tensor_list in data.items():
-            print(f"{key}: Length={len(tensor_list)}, Shape={tensor_list[0].shape}")
+            print(key, len(tensor_list))
+            
             data_to_save[key] = torch.stack(tensor_list).numpy()
 
         # Add processed data to replay buffer
@@ -40,6 +41,6 @@ def main(input_pkl_file_path):
 if __name__=="__main__":
     import sys
     if len(sys.argv) != 2:
-        print("Usage: script_name.py <input_pkl_directory>")
+        print("Usage: generate_zarr_episode.py <input_pkl_directory>")
         sys.exit(1)
     main(sys.argv[1])

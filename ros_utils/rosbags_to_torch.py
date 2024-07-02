@@ -42,7 +42,8 @@ def concatenate_data(data_list, desired_len=256):
 # # Assuming other necessary imports and function definitions remain unchanged
 
 def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
-    data_structure = {}
+    assert mode in ["teacher_aware", "policy_aware"], "Mode must be either 'teacher_aware' or 'policy_aware'"
+    data_structure = {"rdda_right_obs": [], "rdda_right_act": [], "rdda_left_obs": [], "rdda_left_act": [],}
     left_arm_pose_handler = partial(arm_pose_to_tensor, side="left")
     right_arm_pose_handler = partial(arm_pose_to_tensor, side="right")
     rdda_packet_to_tensor_teacher = partial(rdda_packet_to_tensor, mode=mode)
@@ -61,10 +62,20 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
         for topic, msg, t in bag.read_messages():
             if topic in topic_handlers:
                 tensor = topic_handlers[topic](msg, t=t)
+                if "throttled" in topic:
+                    if mode == "teacher_aware": 
+                        obs_tensor = tensor[:9] # 9
+                        action_tensor = tensor[9:] # 6
+
+                    else: ## Policy Aware
+                        obs_tensor = tensor[:18] # 18
+                        action_tensor = tensor[18:] # 6
+
+                    data_structure["rdda_left_act" if "rdda_l" in topic else "rdda_right_act"].append(action_tensor)
+                    data_structure["rdda_left_obs" if "rdda_l" in topic else "rdda_right_obs"].append(obs_tensor)
+                    continue          
+                      
                 if tensor is not None:
-                    # category = "observations" if topic in ["/usb_cam_left/image_raw", "/usb_cam_right/image_raw", 
-                    #                                       "/usb_cam_table/image_raw", "/throttled_rdda_right_master_output", 
-                    #                                       "/throttled_rdda_l_master_output"] else "actions"
                     if "image" in topic:
                         topic_key = topic.split("/")[1]
                     else:
