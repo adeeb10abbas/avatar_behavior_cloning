@@ -2,3 +2,4 @@ hardware/test_trajs/rosbag2_2024_01_18-13_27_59 filter=lfs diff=lfs merge=lfs -t
 hardware filter=lfs diff=lfs merge=lfs -text
 hardware/*.db3 filter=lfs diff=lfs merge=lfs -text
 hardware/**/*.db3 filter=lfs diff=lfs merge=lfs -text
+ros_utils/structured_data.zarr filter=lfs diff=lfs merge=lfs -text

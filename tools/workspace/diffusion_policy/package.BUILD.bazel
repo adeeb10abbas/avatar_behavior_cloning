@@ -1,7 +1,7 @@
 load("@drake//tools/skylark:py.bzl", "py_library")
 
 py_library(
-    name = "diffusion_py",
-    srcs = glob(["diffusion_policy/**/*"]),
+    name = "diffusion_policy",
+    srcs = glob(["diffusion_policy/**/*",]),
     visibility = ["//visibility:public"],
 )

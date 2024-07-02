@@ -71,16 +71,16 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
-start_process(f"rosrun franka_lock_unlock __init__.py 10.103.1.14 admin Boston1234 -u -c -p -l", "lfranka")
-start_process(f"rosrun franka_lock_unlock __init__.py 10.103.1.12 admin Boston1234 -u -c -p -l", "rfranka")
+# tart_process(f"rosrun franka_lock_unlock __init__.py 10.103.1.14 admin Boston1234 -u -c -p -l", "lfranka")
+# start_process(f"rosrun franka_lock_unlock __init__.py 10.103.1.12 admin Boston1234 -u -c -p -l", "rfranka")
 
 # Start processes
 start_process(f"sudo ~/avatar/ws/src/RDDA/build/rdda_slave left_gripper", "lgripper")
 start_process(f"sudo ~/avatar/ws/src/RDDA/build/rdda_slave right_gripper", "rgripper")
 # time.sleep(10)
 input("Press Enter to continue...")
-start_process(f"roslaunch rdda_interface rdda_interface.launch rdda_type:=left_gripper", "lgripper_interface")
-start_process(f"roslaunch rdda_interface rdda_interface.launch rdda_type:=right_gripper", "rgripper_interface")
+# start_process(f"roslaunch rdda_interface rdda_interface.launch rdda_type:=left_gripper", "lgripper_interface")
+# start_process(f"roslaunch rdda_interface rdda_interface.launch rdda_type:=right_gripper", "rgripper_interface")
 
 start_process(f"rosrun franka_control avatar_panda left", "lpanda")
 start_process(f"rosrun franka_control avatar_panda right", "rpanda")
