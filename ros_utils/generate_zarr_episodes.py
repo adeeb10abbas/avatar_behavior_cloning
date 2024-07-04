@@ -8,7 +8,7 @@ from tqdm import tqdm
 def main(input_pkl_file_path):
     # Determine the output directory and name for the Zarr file
     output_dir = os.path.dirname(input_pkl_file_path)
-    zarr_name = os.path.basename(input_pkl_file_path) + "_zarr"
+    zarr_name = os.path.basename(input_pkl_file_path) + "_replay_buffer.zarr"
     zarr_output_path = os.path.join(output_dir, zarr_name)
     print(zarr_output_path)
     # Create or open an existing Zarr file
@@ -33,6 +33,23 @@ def main(input_pkl_file_path):
             print(key, len(tensor_list))
             
             data_to_save[key] = torch.stack(tensor_list).numpy()
+        # import pdb; pdb.set_trace()
+        rdda_right_act = data_to_save["rdda_right_act"]
+        right_smarty_arm_output = data_to_save["right_smarty_arm_output"]
+        rdda_left_act = data_to_save["rdda_left_act"]
+        left_smarty_arm_output = data_to_save["left_smarty_arm_output"]
+
+        # Stack the arrays along the 0th dimension
+        data_to_save["action"] = np.concatenate([rdda_right_act,
+                                            right_smarty_arm_output,
+                                            rdda_left_act,
+                                            left_smarty_arm_output], axis=1)
+
+        del data
+        keys_to_delete = ["rdda_right_act", "right_smarty_arm", "rdda_left_act", "left_smarty_arm"]
+        for key in keys_to_delete:
+            if key in data_to_save:
+                del data_to_save[key]
 
         # Add processed data to replay buffer
         replay_buffer.add_episode(data_to_save, compressors='disk')
