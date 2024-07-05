@@ -81,7 +81,8 @@ class TestAvatarHapticsImageDataset(unittest.TestCase):
         self.assertIn("action", item)
 
         obs = item["obs"]
-        # self.assertEqual(set(obs.keys()), set(shape_meta["obs"].keys()))
+        # import pdb; pdb.set_trace()
+        self.assertTrue(set(shape_meta["obs"].keys()) <= set(obs.keys()))
 
         # Check the shape and type of one of the rgb observations
         self.assertEqual(obs["usb_cam_right"].shape, (5, 3, 480, 640))

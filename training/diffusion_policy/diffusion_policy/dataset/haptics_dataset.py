@@ -249,12 +249,12 @@ class AvatarHapticsImageDataset(BaseImageDataset):
             # T,C,H,W
             # del data[key]
         
-        print(obs_dict.keys())
-        print("---"*1000)
+        # print(obs_dict.keys())
+        # print("---"*1000)
         for key in self.lowdim_keys:
             obs_dict[key] = data[key][T_slice].astype(np.float32)
             # del data[key]
-
+        # import pdb; pdb.set_trace()
         torch_data = {
             "obs": dict_apply(obs_dict, torch.from_numpy),
             "action": torch.from_numpy(data["action"].astype(np.float32)),

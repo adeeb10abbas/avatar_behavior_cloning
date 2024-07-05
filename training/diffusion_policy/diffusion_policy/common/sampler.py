@@ -130,8 +130,8 @@ class SequenceSampler:
         "rdda_right_obs",
         "rdda_left_obs", "action"]
         for key in self.keys:
-            print(buffer_start_idx, buffer_end_idx)
-            print(f"index at {idx}: going through", key)
+            # print(buffer_start_idx, buffer_end_idx)
+            # print(f"index at {idx}: going through", key)
             input_arr = self.replay_buffer[key]
             # performance optimization, avoid small allocation if possible
             if key not in self.key_first_k:
@@ -159,6 +159,6 @@ class SequenceSampler:
                     data[sample_end_idx:] = sample[-1]
                 data[sample_start_idx:sample_end_idx] = sample
             result[key] = data
-        print(result)
+        # print(result)
         # breakpoint()
         return result
