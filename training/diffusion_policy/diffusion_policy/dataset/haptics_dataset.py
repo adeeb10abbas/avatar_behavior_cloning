@@ -39,9 +39,7 @@ class AvatarHapticsImageDataset(BaseImageDataset):
     """
     A dataset class for low-dimensional & image data.
 
-    This class inherits from `BaseImageDataset`, specifically designed
-    for the IiwaWSGManipulation environment. It facilitates the creation of
-    training and validation datasets, normalization, and action retrieval.
+    This class inherits from `BaseImageDataset`
     """
 
     def __init__(
@@ -72,13 +70,6 @@ class AvatarHapticsImageDataset(BaseImageDataset):
             n_obs_steps: The number of observation used for computing actions.
                 Used in the sampler to sample correct length observations.
             abs_action: Whether we are using absolute actions or relative.
-            rotation_rep: The method used for representing the rotation portion
-                of the robot actions.
-            seed: Seed for random number generator for reproducibility.
-            val_ratio: The ratio of the total samples to use for validation.
-                If 0, no validation set will be created.
-            include_gripper_action: Whether to include the gripper action in
-                the dataset.
         """
         # rotation_transformer = RotationTransformer(
         #     from_rep="quaternion", to_rep=rotation_rep
@@ -192,25 +183,9 @@ class AvatarHapticsImageDataset(BaseImageDataset):
             this_normalizer = get_identity_normalizer_from_stat(stat)
         normalizer["action"] = this_normalizer
 
-        # Setup normalizers for the observation keys. Supported keys include
-        # keys ending with "_translation" and "_rotation" which define a SE(3)
-        # pose of a robot or object, "wsg" which is the gripper width, and
-        # "spatial_force_at_ee"/"ee_forces" which describe the forces on
-        # the robot's end-effector.
         for key in self.lowdim_keys:
             stat = array_to_stats(self.replay_buffer[key])
-            if key.endswith("_translation"):
-                this_normalizer = get_range_normalizer_from_stat(stat)
-            elif key.endswith("_orientation") or key.endswith("_rotation") or "smarty" in key:
-                # quaternion is in [-1,1] already
-                this_normalizer = get_identity_normalizer_from_stat(stat)
-            elif key == "wsg":
-                this_normalizer = get_range_normalizer_from_stat(stat)
-            elif key in ["spatial_force_at_ee", "ee_forces"] or "rdda" in key:
-                # TODO: Test to see if the values are properly normalized
-                this_normalizer = get_range_normalizer_from_stat(stat)
-            else:
-                raise RuntimeError(f"Unsupported key {key}")
+            this_normalizer = get_range_normalizer_from_stat(stat)
             normalizer[key] = this_normalizer
 
         # image
