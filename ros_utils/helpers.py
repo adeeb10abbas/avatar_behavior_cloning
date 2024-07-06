@@ -41,6 +41,8 @@ def arm_pose_to_tensor(pose_msg, side, t):
     # breakpoint()
     return pose_tensor
 
+import torch
+
 def rdda_packet_to_tensor(rdda_packet: RDDAPacket, mode: str, t: Clock):
     pos_tensor = torch.tensor(rdda_packet.pos, dtype=torch.float32)
     pos_desired_tensor = torch.tensor(rdda_packet.pos_d, dtype=torch.float32)
@@ -48,15 +50,37 @@ def rdda_packet_to_tensor(rdda_packet: RDDAPacket, mode: str, t: Clock):
     tau_tensor = torch.tensor(rdda_packet.tau, dtype=torch.float32)
     wave_tensor = torch.tensor(rdda_packet.wave, dtype=torch.float32)
     pressure_tensor = torch.tensor(rdda_packet.pressure, dtype=torch.float32)
+    
+    # Debugging prints to check tensor shapes
+    print(f"pos_tensor shape: {pos_tensor.shape}")
+    print(f"pos_desired_tensor shape: {pos_desired_tensor.shape}")
+    print(f"vel_tensor shape: {vel_tensor.shape}")
+    print(f"tau_tensor shape: {tau_tensor.shape}")
+    print(f"wave_tensor shape: {wave_tensor.shape}")
+    print(f"pressure_tensor shape: {pressure_tensor.shape}")
 
-    if mode == "teacher":
+    obs_from_state = None
+    action_stuff = None
+
+    if mode == "teacher_aware":
         # We don't feed haptics to the model, it's only supposed to be implicitly learned
         obs_from_state = torch.cat([pos_tensor, vel_tensor, pos_desired_tensor], dim=0)
-        action_stuff = torch.cat([pos_desired_tensor, wave_tensor, pos_desired_tensor], dim=0)
-    elif mode == "policy":
-        obs_from_state = torch.cat([pos_tensor, vel_tensor, tau_tensor, pos_desired_tensor, wave_tensor], dim=0)
+        action_stuff = torch.cat([pos_desired_tensor, wave_tensor], dim=0)
+    elif mode == "policy_aware":
+        obs_from_state = torch.cat([pos_tensor, vel_tensor, tau_tensor, pos_desired_tensor, wave_tensor, pressure_tensor], dim=0)
         action_stuff = torch.cat([wave_tensor, pos_desired_tensor], dim=0)
-    
-    all_tensors = torch.vstack([obs_from_state, action_stuff])
+
+    # assert obs_from_state is not None and action_stuff is not None
+
+    # Ensure the tensors are the same shape before stacking
+    print(f"obs_from_state shape: {obs_from_state.shape}")
+    print(f"action_stuff shape: {action_stuff.shape}")
+
+    # Adjusting the concatenation to be along the correct dimension
+    all_tensors = torch.hstack([obs_from_state, action_stuff])
     
     return all_tensors
+
+
+    # /app/processed_bottle_pick_data
+    # /app/processed_bottle_pick_data/torch_output

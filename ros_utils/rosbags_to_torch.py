@@ -1,11 +1,10 @@
 import torch 
-_path = "/app/experimental_throttled/rethrottled_out.bag"
 
 import torch
 import rosbag
 import pickle
 from typing import Optional
-
+import os
 from sensor_msgs.msg import Image, JointState
 from geometry_msgs.msg import Point, Quaternion, Twist, Pose
 from cv_bridge import CvBridge
@@ -42,8 +41,9 @@ def concatenate_data(data_list, desired_len=256):
 
 # # Assuming other necessary imports and function definitions remain unchanged
 
-def extract_and_organize_data_from_bag(bag_path, mode, output_file="organized_data.pkl"):
-    data_structure = {}
+def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
+    assert mode in ["teacher_aware", "policy_aware"], "Mode must be either 'teacher_aware' or 'policy_aware'"
+    data_structure = {"rdda_right_obs": [], "rdda_right_act": [], "rdda_left_obs": [], "rdda_left_act": [],}
     left_arm_pose_handler = partial(arm_pose_to_tensor, side="left")
     right_arm_pose_handler = partial(arm_pose_to_tensor, side="right")
     rdda_packet_to_tensor_teacher = partial(rdda_packet_to_tensor, mode=mode)
@@ -62,10 +62,20 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file="organized_da
         for topic, msg, t in bag.read_messages():
             if topic in topic_handlers:
                 tensor = topic_handlers[topic](msg, t=t)
+                if "throttled" in topic:
+                    if mode == "teacher_aware": 
+                        obs_tensor = tensor[:9] # 9
+                        action_tensor = tensor[9:] # 6
+
+                    else: ## Policy Aware
+                        obs_tensor = tensor[:18] # 18
+                        action_tensor = tensor[18:] # 6
+
+                    data_structure["rdda_left_act" if "rdda_l" in topic else "rdda_right_act"].append(action_tensor)
+                    data_structure["rdda_left_obs" if "rdda_l" in topic else "rdda_right_obs"].append(obs_tensor)
+                    continue          
+                      
                 if tensor is not None:
-                    # category = "observations" if topic in ["/usb_cam_left/image_raw", "/usb_cam_right/image_raw", 
-                    #                                       "/usb_cam_table/image_raw", "/throttled_rdda_right_master_output", 
-                    #                                       "/throttled_rdda_l_master_output"] else "actions"
                     if "image" in topic:
                         topic_key = topic.split("/")[1]
                     else:
@@ -75,17 +85,19 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file="organized_da
                     data_structure[topic_key].append(tensor)
 
     # Saving the organized data without concatenation
-    with open(output_file, 'wb') as f:
+    with open(output_file_path, 'wb') as f:
         pickle.dump(data_structure, f)
-    print(f"Organized data saved to {output_file}")
+    print(f"Organized data saved to {output_file_path}")
     # print(f"Concatenated data and feature log extracted and saved to {output_file} and {log_file_path}, respectively.")
 
-def main(input_file, mode):
-    extract_and_organize_data_from_bag(input_file, mode = mode)
+def main(input_file, mode, output_file):
+    output_file_name = input_file.split("/")[-1].split(".")[0]
+    output_file_path = os.path.join(output_file, f"{output_file_name}.pkl")
+    extract_and_organize_data_from_bag(input_file, mode = mode, output_file_path = output_file_path)
     
 if __name__=="__main__":
     import sys
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 4:
         print("Usage: rosbags_to_torch.py <input_bag_file> <mode>")
         sys.exit(1)
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1], sys.argv[2], sys.argv[3])
