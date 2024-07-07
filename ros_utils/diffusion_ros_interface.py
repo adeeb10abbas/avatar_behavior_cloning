@@ -66,7 +66,7 @@ class DiffusionROSInterface:
         self.frequency = 10
         self.dt = 1.0 / self.frequency
         self.steps_per_inference = 6
-        
+
         if "diffusion" in self.cfg.name:
             # diffusion model
             self.policy: BaseImagePolicy
@@ -114,14 +114,22 @@ class DiffusionROSInterface:
         ) / 4
         rospy.loginfo(f"Image average timestamp: {img_timestamp}, State average timestamp: {state_timestamp}")
 
+        np_state1 = np.concatenate((state1.wave, state1.pos_d))
+        np_state2 = np.concatenate((state2.wave, state2.pos_d))
+        np_state3 = np.array(
+            [state3.position.x, state3.position.y, state3.position.z, state3.quat.x, state3.quat.y, state3.quat.z, state3.quat.w]
+        )
+        np_state4 = np.array(
+            [state4.position.x, state4.position.y, state4.position.z, state4.quat.x, state4.quat.y, state4.quat.z, state4.quat.w]
+        )
         self.obs_dict = {
             "usb_cam_left": cv_image1,
             "usb_cam_right": cv_image2,
             "usb_cam_table": cv_image3,
-            "left_gripper_state": state1,
-            "right_gripper_state": state2,
-            "left_arm_state": state3,
-            "right_arm_state": state4,
+            "left_gripper_state": np_state1,
+            "right_gripper_state": np_state2,
+            "left_arm_state": np_state3,
+            "right_arm_state": np_state4,
             "timestamp": img_timestamp,
         }
 
@@ -140,21 +148,21 @@ class DiffusionROSInterface:
         """
         Publish the actions to the grippers and arms through ROS
         """
-        assert (len(action_tuple[0]) == len(action_tuple[1]))
-        assert (len(action_tuple[1]) == len(action_tuple[2]))
-        assert (len(action_tuple[2]) == len(action_tuple[3]))
+        assert len(action_tuple[0]) == len(action_tuple[1])
+        assert len(action_tuple[1]) == len(action_tuple[2])
+        assert len(action_tuple[2]) == len(action_tuple[3])
 
         def create_RDDAPacket(action):
-            assert (len(action) == 6)
+            assert len(action) == 6
             packet = RDDAPacket()
             packet.wave = [action[0], action[1], action[2]]
             packet.pos_d = [action[3], action[4], action[5]]
             packet.timestamp = rospy.get_rostime()
 
             return packet
-        
+
         def create_PTIPacket(packet, action):
-            assert(len(action) == 7)
+            assert len(action) == 7
             packet = PTIPacket()
             packet.position.x = action[0]
             packet.position.y = action[1]
@@ -163,18 +171,18 @@ class DiffusionROSInterface:
             packet.quat.y = action[4]
             packet.quat.z = action[5]
             packet.quat.w = action[6]
-            
+
             packet.timestamp = rospy.get_rostime()
 
             return packet
-        
+
         for step in range(len(action_tuple[0])):
             t = time.monotonic()
             left_gripper_packet = create_RDDAPacket(action_tuple[0][step])
             right_gripper_packet = create_RDDAPacket(action_tuple[1][step])
             left_arm_packet = create_PTIPacket(action_tuple[2][step])
             right_arm_packet = create_PTIPacket(action_tuple[3][step])
-            
+
             self.left_gripper_master_pub.publish(left_gripper_packet)
             self.right_gripper_master_pub.publish(right_gripper_packet)
             self.left_smarty_arm_pub.publish(left_arm_packet)
@@ -183,16 +191,16 @@ class DiffusionROSInterface:
 
             ## TODO Sleep??
             time.sleep(0.1)
-    
+
     def parse_tensor_actions(self, action: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Parse the tensor action to the corresponding actions for the left gripper, right gripper, left arm and right arm
         """
         assert action.shape[-1] == 26
-        left_gripper_action = action[:, 0:6] # N x 6
-        right_gripper_action = action[:, 6:12] # N x 6
-        left_arm_action = action[:, 12:19] # N x 7
-        right_arm_action = action[:, 19:26] # N x 7
+        left_gripper_action = action[:, 0:6]  # N x 6
+        right_gripper_action = action[:, 6:12]  # N x 6
+        left_arm_action = action[:, 12:19]  # N x 7
+        right_arm_action = action[:, 19:26]  # N x 7
         return left_gripper_action, right_gripper_action, left_arm_action, right_arm_action
 
     def main(self):
@@ -218,7 +226,7 @@ class DiffusionROSInterface:
             # env.start_episode(eval_t_start)
             # wait for 1/30 sec to get the closest frame actually
             # reduces overall latency
-            frame_latency = 1/30
+            frame_latency = 1 / 30
             precise_wait(eval_t_start - frame_latency, time_func=time.time)
             print("Started!")
             iter_idx = 0
@@ -227,10 +235,10 @@ class DiffusionROSInterface:
                 t_cycle_end = t_start + (iter_idx + self.steps_per_inference) * self.dt
 
                 # get obs
-                print('get_obs')
+                print("get_obs")
                 obs = self.get_obs()
-                obs_timestamps = obs['timestamp']
-                print(f'Obs latency {time.time() - obs_timestamps[-1]}')
+                obs_timestamps = obs["timestamp"]
+                print(f"Obs latency {time.time() - obs_timestamps[-1]}")
                 with torch.no_grad():
                     s = time.monotonic()
                     self.policy.reset()
@@ -242,8 +250,7 @@ class DiffusionROSInterface:
 
                     # Timestamps check, if the action timestamp is in the past, skip it
                     action_offset = 0
-                    action_timestamps = (np.arange(len(action), dtype=np.float64) + action_offset
-                        ) * self.dt + obs_timestamps[-1]
+                    action_timestamps = (np.arange(len(action), dtype=np.float64) + action_offset) * self.dt + obs_timestamps[-1]
                     action_exec_latency = 0.01
                     curr_time = time.time()
                     is_new = action_timestamps > (curr_time + action_exec_latency)
@@ -254,7 +261,7 @@ class DiffusionROSInterface:
                         # # schedule on next available step
                         next_step_idx = int(np.ceil((curr_time - eval_t_start) / self.dt))
                         action_timestamp = eval_t_start + (next_step_idx) * self.dt
-                        print('Over budget', action_timestamp - curr_time)
+                        print("Over budget", action_timestamp - curr_time)
                         # action_timestamps = np.array([action_timestamp])
                         continue
                     else:
