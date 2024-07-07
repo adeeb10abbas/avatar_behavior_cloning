@@ -92,7 +92,7 @@ class AvatarHapticsImageDataset(BaseImageDataset):
         "rdda_right_obs",
         "rdda_left_obs"
         ]
-        self.all_keys = self.obs_keys.append("action")
+        self.all_keys = self.obs_keys + ["action"]
         replay_buffer = ReplayBuffer.copy_from_path(
             zarr_path=dataset_path, 
             keys= self.all_keys,
@@ -192,25 +192,20 @@ class AvatarHapticsImageDataset(BaseImageDataset):
             this_normalizer = get_identity_normalizer_from_stat(stat)
         normalizer["action"] = this_normalizer
 
-        # Setup normalizers for the observation keys. Supported keys include
-        # keys ending with "_translation" and "_rotation" which define a SE(3)
-        # pose of a robot or object, "wsg" which is the gripper width, and
-        # "spatial_force_at_ee"/"ee_forces" which describe the forces on
-        # the robot's end-effector.
         for key in self.lowdim_keys:
             stat = array_to_stats(self.replay_buffer[key])
-            if key.endswith("_translation"):
-                this_normalizer = get_range_normalizer_from_stat(stat)
-            elif key.endswith("_orientation") or key.endswith("_rotation") or "smarty" in key:
-                # quaternion is in [-1,1] already
-                this_normalizer = get_identity_normalizer_from_stat(stat)
-            elif key == "wsg":
-                this_normalizer = get_range_normalizer_from_stat(stat)
-            elif key in ["spatial_force_at_ee", "ee_forces"] or "rdda" in key:
-                # TODO: Test to see if the values are properly normalized
-                this_normalizer = get_range_normalizer_from_stat(stat)
-            else:
-                raise RuntimeError(f"Unsupported key {key}")
+            # if key.endswith("_translation"):
+            this_normalizer = get_range_normalizer_from_stat(stat)
+            # elif key.endswith("_orientation") or key.endswith("_rotation") or "smarty" in key:
+            #     # quaternion is in [-1,1] already
+            #     this_normalizer = get_identity_normalizer_from_stat(stat)
+            # elif key == "wsg":
+            #     this_normalizer = get_range_normalizer_from_stat(stat)
+            # elif key in ["spatial_force_at_ee", "ee_forces"] or "rdda" in key:
+            #     # TODO: Test to see if the values are properly normalized
+            #     this_normalizer = get_range_normalizer_from_stat(stat)
+            # else:
+                # raise RuntimeError(f"Unsupported key {key}")
             normalizer[key] = this_normalizer
 
         # image

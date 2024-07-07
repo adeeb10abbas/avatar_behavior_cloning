@@ -44,8 +44,9 @@ def concatenate_data(data_list, desired_len=256):
 def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
     assert mode in ["teacher_aware", "policy_aware"], "Mode must be either 'teacher_aware' or 'policy_aware'"
     data_structure = {"rdda_right_obs": [], "rdda_right_act": [], "rdda_left_obs": [], "rdda_left_act": [],}
-    left_arm_pose_handler = partial(arm_pose_to_tensor, side="left")
-    right_arm_pose_handler = partial(arm_pose_to_tensor, side="right")
+    left_arm_pose_handler = partial(operator_arm_pose_to_tensor, side="left")
+    right_arm_pose_handler = partial(operator_arm_pose_to_tensor, side="right")
+    
     rdda_packet_to_tensor_teacher = partial(rdda_packet_to_tensor, mode=mode)
 
     topic_handlers = {
@@ -78,6 +79,8 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
                 if tensor is not None:
                     if "image" in topic:
                         topic_key = topic.split("/")[1]
+                    elif "smarty" in topic:
+                        topic_key = topic.split("/")[-1].replace("smarty_arm_output", "operator_pose")
                     else:
                         topic_key = topic.split("/")[-1]
                     if topic_key not in data_structure:

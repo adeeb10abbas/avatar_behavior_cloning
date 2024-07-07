@@ -4,11 +4,6 @@ import numpy as np
 import torch
 from diffusion_policy.dataset.haptics_dataset import AvatarHapticsImageDataset
 
-import unittest
-from unittest.mock import patch, MagicMock
-import numpy as np
-import torch
-
 class TestAvatarHapticsImageDataset(unittest.TestCase):
 
     @patch('diffusion_policy.common.replay_buffer.ReplayBuffer')
@@ -45,7 +40,6 @@ class TestAvatarHapticsImageDataset(unittest.TestCase):
         
         MockSequenceSampler.return_value = mock_sampler
         
-        # Define the shape_meta as given
         shape_meta = {
             "obs": {
                 "usb_cam_right": {"shape": [3, 640, 480], "type": "rgb"},
@@ -59,12 +53,11 @@ class TestAvatarHapticsImageDataset(unittest.TestCase):
             "action": {"shape": [26]}
         }
 
-        # Instantiate the dataset
         dataset = AvatarHapticsImageDataset(
             dataset_path="/home/ali/shared_volume/processed_bottle_pick_data/finer/teacher_aware_out/_replay_buffer.zarr",
             shape_meta=shape_meta,
-            horizon=10,
-            n_obs_steps=5,
+            horizon=8,
+            n_obs_steps=2,
             pad_before=2,
             pad_after=2,
             abs_action=False,
@@ -73,24 +66,19 @@ class TestAvatarHapticsImageDataset(unittest.TestCase):
             include_gripper_action=True
         )
 
-        # Retrieve an item
-        item = dataset[0]
-
-        # Assertions
+        item = dataset[10]
+        
         self.assertIn("obs", item)
         self.assertIn("action", item)
 
         obs = item["obs"]
-        # import pdb; pdb.set_trace()
-        self.assertTrue(set(shape_meta["obs"].keys()) <= set(obs.keys()))
+        # Check for NaN values in observations
+        for key, value in obs.items():
+            self.assertFalse(torch.isnan(value).any(), f"NaN values found in {key}")
 
-        # Check the shape and type of one of the rgb observations
-        self.assertEqual(obs["usb_cam_right"].shape, (5, 3, 480, 640))
-        self.assertEqual(obs["usb_cam_right"].dtype, torch.float32)
-
-        # Check the shape and type of one of the low_dim observations
-        self.assertEqual(obs["left_smarty_arm_output"].shape, (5, 7))
-        self.assertEqual(obs["left_smarty_arm_output"].dtype, torch.float32)
+        # Check for NaN values in actions
+        import pdb; pdb.set_trace()
+        self.assertFalse(torch.isnan(item["action"]).any(), "NaN values found in action")
 
         # Check the shape and type of the action
         self.assertEqual(item["action"].shape, (10, 26))

@@ -115,7 +115,7 @@ def main(config_name, config_dir, seeds, monitor_key, ray_address,
             this_command_args.extend(command_args)
             this_command_args.extend([
                 f'training.seed={seed}',
-                f'task.env_runner.test_start_seed={test_start_seed}',
+                # f'task.env_runner.test_start_seed={test_start_seed}',
                 f'logging.name={wandb_name}',
                 f'logging.id={wandb_run_id}',
                 f'logging.group={wandb_group_id}',
