@@ -1,5 +1,3 @@
-#! /usr/bin/env python3
-
 import rosbag
 import rospy
 from sensor_msgs.msg import Image, JointState
@@ -10,7 +8,7 @@ from rdda_interface.msg import RDDAPacket
 from time import time
 
 def callback(image_left, image_right, image_table, right_smarty_arm, left_smarty_arm, right_glove=None, left_glove=None):
-    # global callbacks_received
+    global callbacks_received
     rospy.loginfo("Callback triggered - writing synchronized messages to the output bag.")
     bag_out.write('/usb_cam_left/image_raw', image_left, image_left.header.stamp)
     bag_out.write('/usb_cam_right/image_raw', image_right, image_right.header.stamp)
@@ -20,13 +18,12 @@ def callback(image_left, image_right, image_table, right_smarty_arm, left_smarty
     assert(right_glove and left_glove)  # Ensure both glove data are available
     bag_out.write('/throttled_rdda_l_master_output', right_glove, right_glove.header.stamp)
     bag_out.write('/throttled_rdda_right_master_output', left_glove, left_glove.header.stamp)
-    # callbacks_received += 1
+    callbacks_received += 1
 
 def main(input_bag_path, output_bag_path):
     global bag_out, callbacks_received
     rospy.init_node('timesync_node', anonymous=True)
-    node_name = rospy.get_name()
-    rospy.loginfo("Running node: %s" % node_name)
+
     bag_out = rosbag.Bag(output_bag_path, 'w')
     publishers = {}
     callbacks_received = 0
@@ -40,35 +37,54 @@ def main(input_bag_path, output_bag_path):
     last_published_time = {topic: time() for topic in topic_throttle_rate}
 
     subscribers = [
-        (f'{node_name}/usb_cam_left/image_raw', Image),
-        (f'{node_name}/usb_cam_right/image_raw', Image),
-        (f'{node_name}/usb_cam_table/image_raw', Image),
-        (f'{node_name}/right_smarty_arm_output', PTIPacket),
-        (f'{node_name}/left_smarty_arm_output', PTIPacket),
-        (f'{node_name}/throttled_rdda_right_master_output', RDDAPacket),
-        (f'{node_name}/throttled_rdda_l_master_output', RDDAPacket),
+        ('/usb_cam_left/image_raw', Image),
+        ('/usb_cam_right/image_raw', Image),
+        ('/usb_cam_table/image_raw', Image),
+        ('/right_smarty_arm_output', PTIPacket),
+        ('/left_smarty_arm_output', PTIPacket),
+        ('/throttled_rdda_right_master_output', RDDAPacket),
+        ('/throttled_rdda_l_master_output', RDDAPacket),
     ]
 
     # Setup subscribers and synchronizer
     subs = []
     for topic, msg_type in subscribers:
-        queue_size = 25
+        if "rdda" in topic:
+            queue_size = 25
+        else:
+            queue_size = 25
         pub = rospy.Publisher(topic, msg_type, queue_size=queue_size)
         publishers[topic] = pub
         sub = Subscriber(topic, msg_type)
         subs.append(sub)
 
     rospy.loginfo("Setting up the ApproximateTimeSynchronizer.")
-    ats = ApproximateTimeSynchronizer(subs, queue_size=10, slop=0.1)
+    ats = ApproximateTimeSynchronizer(subs, queue_size=10, slop=0.5)
     ats.registerCallback(callback)
 
     # Publish all messages from the bag
     with rosbag.Bag(input_bag_path, 'r') as bag_in:
         for topic, msg, t in bag_in.read_messages():
-            if f'{node_name}{topic}' in publishers:
-                publishers[f'{node_name}{topic}'].publish(msg)
-                rospy.sleep(0.0001)  # Small sleep to maintain timing
+            if topic in topic_throttle_rate:
+                current_time = time()
+                if current_time - last_published_time[topic] < topic_throttle_rate[topic]:
+                    continue  # Skip this message
+                last_published_time[topic] = current_time
+
+            if topic in publishers:
+                publishers[topic].publish(msg)
+                rospy.sleep(0.01)  # Small sleep to maintain timing
                 messages_published += 1
+
+    # Wait for all callbacks to be processed
+    wait_start_time = rospy.Time.now()
+    max_wait_duration = rospy.Duration(2) 
+    while callbacks_received < messages_published:
+        if rospy.Time.now() - wait_start_time > max_wait_duration:
+            rospy.logwarn("Timeout reached, proceeding with shutdown despite unmatched callback count.")
+            break
+        rospy.loginfo("Waiting for all callbacks to be processed...")
+        rospy.sleep(0.1)
 
     rospy.loginfo("All messages published and callbacks processed, initiating shutdown.")
     rospy.signal_shutdown("Completed processing all messages from bag.")
@@ -81,6 +97,6 @@ def main(input_bag_path, output_bag_path):
 if __name__ == '__main__':
     import sys
     if len(sys.argv) != 3:
-        rospy.logerr("Usage: script.py <input_bag_file> <output_bag_file>")
+        rospy.logerr("Usage: ros_time_script.py <input_bag_file> <output_bag_file>")
         sys.exit(1)
     main(sys.argv[1], sys.argv[2])
