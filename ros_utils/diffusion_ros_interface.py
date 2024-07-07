@@ -4,6 +4,7 @@ import rospy
 from rdda_interface.msg import RDDAPacket
 from avatar_msgs.msg import PTIPacket
 from sensor_msgs.msg import Image
+from geometry_msgs.msg import Point, Quaternion
 from cv_bridge import CvBridge, CvBridgeError
 import message_filters
 import cv2
@@ -14,14 +15,16 @@ import numpy as np
 import dill
 from torchvision import transforms
 from typing import Tuple
+import copy
+import time
 
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
 from diffusion_policy.policy.base_image_policy import BaseImagePolicy
 from diffusion_policy.common.cv2_util import get_image_transform
-from diffusion_policy.real_world.real_inference_util import (
-    get_real_obs_resolution, 
-    get_real_obs_dict)
+from diffusion_policy.real_world.real_inference_util import get_real_obs_resolution, get_real_obs_dict
 from diffusion_policy.common.pytorch_util import dict_apply
+from diffusion_policy.common.precise_sleep import precise_wait
+
 
 class DiffusionROSInterface:
     def __init__(self, input, output):
@@ -37,39 +40,49 @@ class DiffusionROSInterface:
         self.state_obs_left_arm_sub = message_filters.Subscriber("/left_smarty_arm_input", PTIPacket)
         self.state_obs_right_arm_sub = message_filters.Subscriber("/right_smarty_arm_input", PTIPacket)
 
-        obs_subs = [self.images_obs_sub1, self.images_obs_sub2, self.images_obs_sub3, self.state_obs_left_gripper_sub, self.state_obs_right_gripper_sub, self.state_obs_left_arm_sub, self.state_obs_right_arm_sub]
+        obs_subs = [
+            self.images_obs_sub1,
+            self.images_obs_sub2,
+            self.images_obs_sub3,
+            self.state_obs_left_gripper_sub,
+            self.state_obs_right_gripper_sub,
+            self.state_obs_left_arm_sub,
+            self.state_obs_right_arm_sub,
+        ]
         self.ts = message_filters.ApproximateTimeSynchronizer(obs_subs, 10)
         self.ts.registerCallback(self.image_callback)
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # load checkpoint
         ckpt_path = input
-        payload = torch.load(open(ckpt_path, 'rb'), pickle_module=dill)
-        self.cfg = payload['cfg']
+        payload = torch.load(open(ckpt_path, "rb"), pickle_module=dill)
+        self.cfg = payload["cfg"]
         cls = hydra.utils.get_class(self.cfg._target_)
         workspace = cls(self.cfg)
         workspace: BaseWorkspace
         workspace.load_payload(payload, exclude_keys=None, include_keys=None)
 
         # hacks for method-specific setup.
-        action_offset = 0
-        delta_action = False
-        if 'diffusion' in self.cfg.name:
+        self.frequency = 10
+        self.dt = 1.0 / self.frequency
+        self.steps_per_inference = 6
+        
+        if "diffusion" in self.cfg.name:
             # diffusion model
             self.policy: BaseImagePolicy
             self.policy = workspace.model
             if self.cfg.training.use_ema:
                 self.policy = workspace.ema_model
 
-            device = torch.device('cuda')
+            device = torch.device("cuda")
             self.policy.eval().to(device)
 
             # set inference params
-            self.policy.num_inference_steps = 100 # DDIM inference iterations
+            self.policy.num_inference_steps = 100  # DDIM inference iterations
+            # (TODO: Double check this)
             self.policy.n_action_steps = self.policy.horizon - self.policy.n_obs_steps + 1
         else:
             raise NotImplementedError(f"Unknown model type: {self.cfg.name}")
-
 
     def image_callback(self, img1, img2, img3, state1, state2, state3, state4):
         """
@@ -84,63 +97,182 @@ class DiffusionROSInterface:
         """
         bridge = CvBridge()
         try:
-            cv_image1 = bridge.imgmsg_to_cv2(img1, desired_encoding='passthrough')
-            cv_image2 = bridge.imgmsg_to_cv2(img2, desired_encoding='passthrough')
-            cv_image3 = bridge.imgmsg_to_cv2(img3, desired_encoding='passthrough')
+            cv_image1 = bridge.imgmsg_to_cv2(img1, desired_encoding="passthrough")
+            cv_image2 = bridge.imgmsg_to_cv2(img2, desired_encoding="passthrough")
+            cv_image3 = bridge.imgmsg_to_cv2(img3, desired_encoding="passthrough")
 
         except CvBridgeError as e:
             rospy.logerr(f"CvBridge Error: {e}")
             return
 
+        img_timestamp = (img1.header.stamp.to_sec() + img2.header.stamp.to_sec() + img3.header.stamp.to_sec()) / 3
+        state_timestamp = (
+            state1.header.stamp.to_sec()
+            + state2.header.stamp.to_sec()
+            + state3.header.stamp.to_sec()
+            + state4.header.stamp.to_sec()
+        ) / 4
+        rospy.loginfo(f"Image average timestamp: {img_timestamp}, State average timestamp: {state_timestamp}")
+
         self.obs_dict = {
-            'usb_cam_left': cv_image1,
-            'usb_cam_right': cv_image2,
-            'usb_cam_table': cv_image3,
-            'left_gripper_state': state1,
-            'right_gripper_state': state2,
-            'left_arm_state': state3,
-            'right_arm_state': state4
+            "usb_cam_left": cv_image1,
+            "usb_cam_right": cv_image2,
+            "usb_cam_table": cv_image3,
+            "left_gripper_state": state1,
+            "right_gripper_state": state2,
+            "left_arm_state": state3,
+            "right_arm_state": state4,
+            "timestamp": img_timestamp,
         }
 
-
-    def TensorToMsg(
-        self, rdda_tensor1, rdda_tensor2, pti_tensor1, pti_tensor2
-    ) -> Tuple[RDDAPacket, RDDAPacket, PTIPacket, PTIPacket]:
+    def get_obs(self) -> dict:
         """
-        Convert tensor to ROS message
-        """
-        rdda_packet1 = RDDAPacket()
-        rdda_packet2 = RDDAPacket()
-        pti_packet1 = PTIPacket()
-        pti_packet2 = PTIPacket()
+        A similar function as the env.get_obs in the orignial diffusion policy implementation.
 
-        return rdda_packet1, rdda_packet2, pti_packet1, pti_packet2
+        Returns:
+            obs_dict (dict): a dictionary containing the synchronized observations.
+        """
+        # Since all the synchornization has been done by the filter, we can directly return the obs_dict
+        obs_dict = copy.deepcopy(self.obs_dict)
+        return obs_dict
+
+    def publish_actions(self, action_tuple: Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]):
+        """
+        Publish the actions to the grippers and arms through ROS
+        """
+        assert (len(action_tuple[0]) == len(action_tuple[1]))
+        assert (len(action_tuple[1]) == len(action_tuple[2]))
+        assert (len(action_tuple[2]) == len(action_tuple[3]))
+
+        def create_RDDAPacket(action):
+            assert (len(action) == 6)
+            packet = RDDAPacket()
+            packet.wave = [action[0], action[1], action[2]]
+            packet.pos_d = [action[3], action[4], action[5]]
+            packet.timestamp = rospy.get_rostime()
+
+            return packet
+        
+        def create_PTIPacket(packet, action):
+            assert(len(action) == 7)
+            packet = PTIPacket()
+            packet.position.x = action[0]
+            packet.position.y = action[1]
+            packet.position.z = action[2]
+            packet.quat.x = action[3]
+            packet.quat.y = action[4]
+            packet.quat.z = action[5]
+            packet.quat.w = action[6]
+            
+            packet.timestamp = rospy.get_rostime()
+
+            return packet
+        
+        for step in range(len(action_tuple[0])):
+            t = time.monotonic()
+            left_gripper_packet = create_RDDAPacket(action_tuple[0][step])
+            right_gripper_packet = create_RDDAPacket(action_tuple[1][step])
+            left_arm_packet = create_PTIPacket(action_tuple[2][step])
+            right_arm_packet = create_PTIPacket(action_tuple[3][step])
+            
+            self.left_gripper_master_pub.publish(left_gripper_packet)
+            self.right_gripper_master_pub.publish(right_gripper_packet)
+            self.left_smarty_arm_pub.publish(left_arm_packet)
+            self.right_smarty_arm_pub.publish(right_arm_packet)
+            print(f"Publishing time: {time.monotonic() - t} seconds")
+
+            ## TODO Sleep??
+            time.sleep(0.1)
+    
+    def parse_tensor_actions(self, action: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Parse the tensor action to the corresponding actions for the left gripper, right gripper, left arm and right arm
+        """
+        assert action.shape[-1] == 26
+        left_gripper_action = action[:, 0:6] # N x 6
+        right_gripper_action = action[:, 6:12] # N x 6
+        left_arm_action = action[:, 12:19] # N x 7
+        right_arm_action = action[:, 19:26] # N x 7
+        return left_gripper_action, right_gripper_action, left_arm_action, right_arm_action
 
     def main(self):
+        print("Warming up policy inference")
+        obs = self.get_obs()
+        with torch.no_grad():
+            self.policy.reset()
+            obs_dict_np = get_real_obs_dict(env_obs=obs, shape_meta=self.cfg.task.shape_meta)
+            obs_dict = dict_apply(obs_dict_np, lambda x: torch.from_numpy(x).unsqueeze(0).to(self.device))
+            result = self.policy.predict_action(obs_dict)
+            action = result["action"][0].detach().to("cpu").numpy()
+            assert action.shape[-1] == 2
+            del result
+
+        print("Ready!")
         # Feed the observation into the model
-        while True:
-            with torch.no_grad():
-                # Do model inference here (TODO)
-                self.policy.reset()
-                obs_dict_np = get_real_obs_dict(
-                    env_obs=self.obs_dict, shape_meta=self.cfg.task.shape_meta)
-                obs_dict = dict_apply(obs_dict_np, 
-                    lambda x: torch.from_numpy(x).unsqueeze(0).to(self.device))
-                result = self.policy.predict_action(obs_dict)
-                action = result['action'][0].detach().to('cpu').numpy()
-                assert action.shape[-1] == 2
-                del result
+        try:
+            # Don't know if we really need this (TODO)
+            self.policy.reset()
+            start_delay = 1.0
+            eval_t_start = time.time() + start_delay
+            t_start = time.monotonic() + start_delay
+            # env.start_episode(eval_t_start)
+            # wait for 1/30 sec to get the closest frame actually
+            # reduces overall latency
+            frame_latency = 1/30
+            precise_wait(eval_t_start - frame_latency, time_func=time.time)
+            print("Started!")
+            iter_idx = 0
+            while True:
+                # calculate timing
+                t_cycle_end = t_start + (iter_idx + self.steps_per_inference) * self.dt
 
-                rdda_tensor1, rdda_tensor2, pti_tensor1, pti_tensor2 = None, None, None, None
-                rdda_packet1, rdda_packet2, pti_packet1, pti_packet2 = self.TensorToMsg(
-                    rdda_tensor1, rdda_tensor2, pti_tensor1, pti_tensor2
-                )
+                # get obs
+                print('get_obs')
+                obs = self.get_obs()
+                obs_timestamps = obs['timestamp']
+                print(f'Obs latency {time.time() - obs_timestamps[-1]}')
+                with torch.no_grad():
+                    s = time.monotonic()
+                    self.policy.reset()
+                    obs_dict_np = get_real_obs_dict(env_obs=obs, shape_meta=self.cfg.task.shape_meta)
+                    obs_dict = dict_apply(obs_dict_np, lambda x: torch.from_numpy(x).unsqueeze(0).to(self.device))
+                    result = self.policy.predict_action(obs_dict)
+                    action = result["action"][0].detach().to("cpu").numpy()
+                    print(f"Model inference time: {time.monotonic() - s} seconds")
 
-            # Publish the action
-            self.left_gripper_master_pub.publish(rdda_packet1)
-            self.right_gripper_master_pub.publish(rdda_packet2)
-            self.left_smarty_arm_pub.publish(pti_packet1)
-            self.right_smarty_arm_pub.publish(pti_packet2)
+                    # Timestamps check, if the action timestamp is in the past, skip it
+                    action_offset = 0
+                    action_timestamps = (np.arange(len(action), dtype=np.float64) + action_offset
+                        ) * self.dt + obs_timestamps[-1]
+                    action_exec_latency = 0.01
+                    curr_time = time.time()
+                    is_new = action_timestamps > (curr_time + action_exec_latency)
+                    if np.sum(is_new) == 0:
+                        # TODO: Not fully understand this part, skip it for now
+                        # exceeded time budget, still do something
+                        # this_target_poses = this_target_poses[[-1]]
+                        # # schedule on next available step
+                        next_step_idx = int(np.ceil((curr_time - eval_t_start) / self.dt))
+                        action_timestamp = eval_t_start + (next_step_idx) * self.dt
+                        print('Over budget', action_timestamp - curr_time)
+                        # action_timestamps = np.array([action_timestamp])
+                        continue
+                    else:
+                        action_commands = action[is_new]
+                        action_timestamps = action_timestamps[is_new]
+
+                    # Parse the tensor action (Need to double check this)
+                    action_tuple = self.parse_tensor_actions(action_commands)
+
+                    # Convert the numpy action to ROS message and publish
+                    # TODO: Need to figure out how to publish a trajectory of actions (sync or async?)
+                    self.publish_actions(action_tuple)
+
+                    # wait for execution
+                    precise_wait(t_cycle_end - frame_latency)
+                    iter_idx += self.steps_per_inference
+        except KeyboardInterrupt:
+            print("Shutting down...")
 
 
 if __name__ == "__main__":
