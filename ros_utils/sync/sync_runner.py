@@ -29,9 +29,11 @@ def main(input_bag_path, output_bag_path):
         process = multiprocessing.Process(target=process_bag_file, args=(bag_file, output_bag_path))
         processes.append(process)
         process.start()
-
-    for process in processes:
+        # process_bag_file(bag_file, output_bag_path)
         process.join()
+
+    # for process in processes:
+        # process.join()
 
     print("All bag files have been processed.")
 

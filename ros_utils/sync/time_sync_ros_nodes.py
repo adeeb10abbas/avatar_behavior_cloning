@@ -72,7 +72,7 @@ def main(input_bag_path, output_bag_path):
     with rosbag.Bag(input_bag_path, 'r') as bag_in:
         for topic, msg, t in bag_in.read_messages():
             if f'{node_name}{topic}' in publishers:
-                print(f"Publishing message from topic: {topic}")
+                # print(f"Publishing message from topic: {topic}")
                 publishers[f'{node_name}{topic}'].publish(msg)
                 # import pdb; pdb.set_trace()
                 rospy.sleep(0.0001)  # Small sleep to maintain timing

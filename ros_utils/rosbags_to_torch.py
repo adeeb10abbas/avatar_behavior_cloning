@@ -15,7 +15,7 @@ import numpy as np
 ## Custom 
 from rdda_interface.msg import RDDAPacket
 
-from helpers import image_to_tensor, arm_pose_to_tensor, rdda_packet_to_tensor
+from helpers import image_to_tensor, operator_arm_pose_to_tensor, rdda_packet_to_tensor, panda_arm_pose_to_tensor
 
 def save_tensors_as_pickle(data_tensors, output_file):
     with open(output_file, 'wb') as f:
@@ -55,6 +55,8 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
         "/usb_cam_table/image_raw": image_to_tensor, # obs
         "/right_smarty_arm_output": right_arm_pose_handler, # obs + action (user)
         "/left_smarty_arm_output": left_arm_pose_handler, # obs + action (user)
+        "/left_arm_pose": panda_arm_pose_to_tensor, # obs
+        "/right_arm_pose": panda_arm_pose_to_tensor, # obs
         "/throttled_rdda_right_master_output": rdda_packet_to_tensor_teacher, # obs, act
         "/throttled_rdda_l_master_output": rdda_packet_to_tensor_teacher, # obs, act
     }
@@ -69,7 +71,7 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
                         action_tensor = tensor[9:] # 6
 
                     else: ## Policy Aware
-                        obs_tensor = tensor[:18] # 18
+                        obs_tensor = tensor[:18] # 15
                         action_tensor = tensor[18:] # 6
 
                     data_structure["rdda_left_act" if "rdda_l" in topic else "rdda_right_act"].append(action_tensor)

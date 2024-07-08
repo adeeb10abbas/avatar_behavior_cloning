@@ -14,7 +14,6 @@ import numpy as np
 ## Custom 
 from rdda_interface.msg import RDDAPacket
 from avatar_msgs.msg import PTIPacket
-from 
 import torch
 
 # Function to convert sensor_msgs/Image to a PyTorch tensor
@@ -25,11 +24,12 @@ def image_to_tensor(image_msg, t: Optional[Clock] = None):
     tensor_image = torch.tensor(np.array(cv_image), dtype=torch.float)
     return tensor_image
 
-def panda_arm_pose_to_tensor(pose_msg, side, t):
-    position_tensor = torch.tensor([pose_msg.position.x, pose_msg.position.y, pose_msg.position.z], dtype=torch.float32)
-    quat_tensor = torch.tensor([pose_msg.quat.x, pose_msg.quat.y, pose_msg.quat.z, pose_msg.quat.w], dtype=torch.float32)
 
-    pose_tensor = torch.cat([position_tensor, quat_tensor], dim=0)
+def panda_arm_pose_to_tensor(pose_msg, t):
+    position_tensor = torch.tensor([pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z], dtype=torch.float32)
+    quat_tensor = torch.tensor([pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z, pose_msg.pose.orientation.w], dtype=torch.float32)
+
+    panda_arm_ee_pose_tensor = torch.cat([position_tensor, quat_tensor], dim=0)
 
     return panda_arm_ee_pose_tensor
 
@@ -42,7 +42,7 @@ def operator_arm_pose_to_tensor(pose_msg, side, t):
     quat_tensor = torch.tensor([pose_msg.quat.x, pose_msg.quat.y, pose_msg.quat.z, pose_msg.quat.w], dtype=torch.float32)
 
     # Concatenation
-    pose_tensor = torch.cat([position_tensor, quat_tensor], dim=0)
+    operator_ee_pose_tensor = torch.cat([position_tensor, quat_tensor], dim=0)
 
     return operator_ee_pose_tensor
 
@@ -71,7 +71,7 @@ def rdda_packet_to_tensor(rdda_packet: RDDAPacket, mode: str, t: Clock):
         obs_from_state = torch.cat([pos_tensor, vel_tensor, pos_desired_tensor], dim=0)
         action_stuff = torch.cat([pos_desired_tensor, wave_tensor], dim=0)
     elif mode == "policy_aware":
-        obs_from_state = torch.cat([pos_tensor, vel_tensor, tau_tensor, pos_desired_tensor, wave_tensor, pressure_tensor], dim=0)
+        obs_from_state = torch.cat([pos_tensor, vel_tensor, tau_tensor, pos_desired_tensor, pressure_tensor], dim=0)
         action_stuff = torch.cat([wave_tensor, pos_desired_tensor], dim=0)
 
     # assert obs_from_state is not None and action_stuff is not None
