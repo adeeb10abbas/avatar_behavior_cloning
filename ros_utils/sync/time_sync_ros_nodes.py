@@ -9,7 +9,7 @@ from avatar_msgs.msg import PTIPacket
 from rdda_interface.msg import RDDAPacket
 from time import time
 
-def callback(image_left, image_right, image_table, right_smarty_arm, left_smarty_arm, right_glove=None, left_glove=None):
+def callback(image_left, image_right, image_table, right_smarty_arm, left_smarty_arm, left_arm_pose, right_arm_pose, right_glove=None, left_glove=None):
     # global callbacks_received
     rospy.loginfo("Callback triggered - writing synchronized messages to the output bag.")
     bag_out.write('/usb_cam_left/image_raw', image_left, image_left.header.stamp)
@@ -17,7 +17,11 @@ def callback(image_left, image_right, image_table, right_smarty_arm, left_smarty
     bag_out.write('/usb_cam_table/image_raw', image_table, image_table.header.stamp)
     bag_out.write('/right_smarty_arm_output', right_smarty_arm, right_smarty_arm.header.stamp)
     bag_out.write('/left_smarty_arm_output', left_smarty_arm, left_smarty_arm.header.stamp)
+    
+    bag_out.write('/left_arm_pose', left_arm_pose, left_arm_pose.header.stamp)
+    bag_out.write('/right_arm_pose', right_arm_pose, right_arm_pose.header.stamp)
     assert(right_glove and left_glove)  # Ensure both glove data are available
+    
     bag_out.write('/throttled_rdda_l_master_output', right_glove, right_glove.header.stamp)
     bag_out.write('/throttled_rdda_right_master_output', left_glove, left_glove.header.stamp)
     # callbacks_received += 1
@@ -45,6 +49,8 @@ def main(input_bag_path, output_bag_path):
         (f'{node_name}/usb_cam_table/image_raw', Image),
         (f'{node_name}/right_smarty_arm_output', PTIPacket),
         (f'{node_name}/left_smarty_arm_output', PTIPacket),
+        (f'{node_name}/left_arm_pose', PoseStamped),
+        (f'{node_name}/right_arm_pose', PoseStamped),        
         (f'{node_name}/throttled_rdda_right_master_output', RDDAPacket),
         (f'{node_name}/throttled_rdda_l_master_output', RDDAPacket),
     ]
@@ -66,7 +72,9 @@ def main(input_bag_path, output_bag_path):
     with rosbag.Bag(input_bag_path, 'r') as bag_in:
         for topic, msg, t in bag_in.read_messages():
             if f'{node_name}{topic}' in publishers:
+                print(f"Publishing message from topic: {topic}")
                 publishers[f'{node_name}{topic}'].publish(msg)
+                # import pdb; pdb.set_trace()
                 rospy.sleep(0.0001)  # Small sleep to maintain timing
                 messages_published += 1
 

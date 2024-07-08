@@ -1,6 +1,8 @@
-import ros_sync_time
 import sys
 import os
+import multiprocessing
+import time_sync_ros_nodes 
+
 def main(input_bag_path, output_bag_path):
     # Check if the input bag file exists
     if not os.path.exists(input_bag_path):
@@ -15,17 +17,27 @@ def main(input_bag_path, output_bag_path):
         for file in files:
             if file.endswith(".bag"):
                 bag_list.append(os.path.join(root, file))
-    print(bag_list)
     
-    # Process each bag file in the list 
-    for bag_file in bag_list:
+    def process_bag_file(bag_file, output_bag_path):
         print("Processing bag file: %s" % bag_file)
         out_bag_file = os.path.join(output_bag_path, os.path.basename(bag_file))
-        ros_sync_time.main(bag_file, out_bag_file)
+        time_sync_ros_nodes.main(bag_file, out_bag_file)
         print("Processed bag file: %s" % bag_file)
+
+    processes = []
+    for bag_file in bag_list:
+        process = multiprocessing.Process(target=process_bag_file, args=(bag_file, output_bag_path))
+        processes.append(process)
+        process.start()
+
+    for process in processes:
+        process.join()
+
+    print("All bag files have been processed.")
+
 if __name__ == '__main__':
     import sys
     if len(sys.argv) != 3:
-        print("Usage: ros_sync_time.py <input_bag_file> <output_bag_file>")
+        print("Usage: sync_runner.py <input_bag_path> <output_bag_path>")
         sys.exit(1)
     main(sys.argv[1], sys.argv[2])
