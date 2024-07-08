@@ -78,8 +78,8 @@ class AvatarHapticsImageDataset(BaseImageDataset):
         "usb_cam_right",
         "usb_cam_left",
         "usb_cam_table",
-        "left_smarty_arm_output",
-        "right_smarty_arm_output",
+        "left_arm_pose",
+        "right_arm_pose",
         "rdda_right_obs",
         "rdda_left_obs"
         ]

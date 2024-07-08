@@ -20,13 +20,13 @@ def main(input_pkl_file_path):
         for file in files:
             if file.endswith(".pkl"):
                 pkl_list.append(os.path.join(root, file))
-
+                
     # Process each pkl file
     for pkl_file in tqdm(pkl_list, desc="Processing pkl files"):
         print("Processing pkl file: %s" % pkl_file)
         with open(pkl_file, "rb") as f:
             data = pickle.load(f)
-        
+            # import pdb; pdb.set_trace()
         # Prepare data to be saved in Zarr
         data_to_save = {}
         for key, tensor_list in data.items():
@@ -35,15 +35,15 @@ def main(input_pkl_file_path):
             data_to_save[key] = torch.stack(tensor_list).numpy()
         # import pdb; pdb.set_trace()
         rdda_right_act = data_to_save["rdda_right_act"]
-        right_smarty_arm_output = data_to_save["right_smarty_arm_output"]
+        right_operator_pose = data_to_save["right_operator_pose"]
         rdda_left_act = data_to_save["rdda_left_act"]
-        left_smarty_arm_output = data_to_save["left_smarty_arm_output"]
+        left_operator_pose = data_to_save["left_operator_pose"]
 
         # Stack the arrays along the 0th dimension
         data_to_save["action"] = np.concatenate([rdda_right_act,
-                                            right_smarty_arm_output,
+                                            right_operator_pose,
                                             rdda_left_act,
-                                            left_smarty_arm_output], axis=1)
+                                            left_operator_pose], axis=1)
 
         del data
         keys_to_delete = ["rdda_right_act", "right_smarty_arm", "rdda_left_act", "left_smarty_arm"]

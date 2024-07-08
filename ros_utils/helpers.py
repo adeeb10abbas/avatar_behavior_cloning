@@ -10,6 +10,8 @@ from cv_bridge import CvBridge
 from rosgraph_msgs.msg import Clock
 from functools import partial
 import numpy as np
+from scipy.spatial.transform import Rotation
+from diffusion_policy.model.common.rotation_transformer import RotationTransformer
 
 ## Custom 
 from rdda_interface.msg import RDDAPacket
@@ -26,23 +28,46 @@ def image_to_tensor(image_msg, t: Optional[Clock] = None):
 
 
 def panda_arm_pose_to_tensor(pose_msg, t):
+    # Position tensor
     position_tensor = torch.tensor([pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z], dtype=torch.float32)
+    
+    # Quaternion tensor
     quat_tensor = torch.tensor([pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z, pose_msg.pose.orientation.w], dtype=torch.float32)
-
-    panda_arm_ee_pose_tensor = torch.cat([position_tensor, quat_tensor], dim=0)
+    
+    # Convert quaternion to rotation vector (axis-angle representation)
+    rotation = Rotation.from_quat(quat_tensor.numpy()) 
+    rotvec = rotation.as_rotvec()
+    tf = RotationTransformer()
+    rot6d_tensor = torch.tensor(tf.forward(rotvec), dtype=torch.float32)
+    
+    # Concatenate position and rotation vector tensors
+    panda_arm_ee_pose_tensor = torch.cat([position_tensor, rot6d_tensor], dim=0)
 
     return panda_arm_ee_pose_tensor
 
 
 def operator_arm_pose_to_tensor(pose_msg, side, t):
+    # Position tensor
     position_tensor = torch.tensor([pose_msg.position.x, pose_msg.position.y, pose_msg.position.z], dtype=torch.float32)
-    angle_tensor = torch.tensor([pose_msg.angle.x, pose_msg.angle.y, pose_msg.angle.z], dtype=torch.float32)
-    twist_tensor = torch.tensor([pose_msg.twist.linear.x, pose_msg.twist.linear.y, pose_msg.twist.linear.z,
-                                 pose_msg.twist.angular.x, pose_msg.twist.angular.y, pose_msg.twist.angular.z], dtype=torch.float32)
+    
+    # # Euler Angle tensor
+    # angle_tensor = torch.tensor([pose_msg.angle.x, pose_msg.angle.y, pose_msg.angle.z], dtype=torch.float32)
+    
+    # # Twist tensor
+    # twist_tensor = torch.tensor([pose_msg.twist.linear.x, pose_msg.twist.linear.y, pose_msg.twist.linear.z,
+    #                              pose_msg.twist.angular.x, pose_msg.twist.angular.y, pose_msg.twist.angular.z], dtype=torch.float32)
+    
+    # Quaternion tensor
     quat_tensor = torch.tensor([pose_msg.quat.x, pose_msg.quat.y, pose_msg.quat.z, pose_msg.quat.w], dtype=torch.float32)
-
-    # Concatenation
-    operator_ee_pose_tensor = torch.cat([position_tensor, quat_tensor], dim=0)
+    
+    # Convert quaternion to rotation vector (axis-angle representation)
+    rotation = Rotation.from_quat(quat_tensor.numpy()) 
+    rotvec = rotation.as_rotvec()
+    tf = RotationTransformer()
+    rot6d_tensor = torch.tensor(tf.forward(rotvec), dtype=torch.float32)
+    
+    # Concatenate position, rotation vector
+    operator_ee_pose_tensor = torch.cat([position_tensor, rot6d_tensor], dim=0)
 
     return operator_ee_pose_tensor
 
