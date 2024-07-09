@@ -46,7 +46,7 @@ def main(input_pkl_file_path):
                                             left_operator_pose], axis=1)
 
         del data
-        keys_to_delete = ["rdda_right_act", "right_smarty_arm", "rdda_left_act", "left_smarty_arm"]
+        keys_to_delete = ["rdda_right_act", "right_operator_pose", "rdda_left_act", "left_operator_pose"]
         for key in keys_to_delete:
             if key in data_to_save:
                 del data_to_save[key]

@@ -28,22 +28,22 @@ shape_meta: &shape_meta
     usb_cam_table:
       shape: *image_shape
       type: rgb
-    left_panda_pose_output:
-      shape: [7] # left robot EE pose
+    left_arm_pose:
+      shape: [9] # left robot EE pose
       type: low_dim
-    right_panda_pose_output:
-      shape: [7] # right robot EE pose
+    left_arm_pose:
+      shape: [9] # right robot EE pose
       type: low_dim
     rdda_right_obs:
-      shape: [9] # pos_tensor, vel_tensor, pos_desired_tensor
+      shape: [6] # pos_tensor, vel_tensor
       type: low_dim
     rdda_left_obs:
-      shape: [9] # pos_tensor, vel_tensor, pos_desired_tensor
+      shape: [6] # pos_tensor, vel_tensor
       type: low_dim
   action:
     shape: [26]
-    # addition here - rdda_right_act (6)[wave, pos_d] + rdda_left_act(6) [wave, pos_d] + left_operator_ee_pose(7) 
-    # + right_arm_ee_pose(7) 
+    # addition here - rdda_right_act (6)[wave, pos_d] + rdda_left_act(6) [wave, pos_d] + left_operator_ee_pose(9) 
+    # + right_arm_ee_pose(9) 
 
 task:
   name: haptic_image_teacher_aware

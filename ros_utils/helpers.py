@@ -34,15 +34,12 @@ def panda_arm_pose_to_tensor(pose_msg, t):
     # Quaternion tensor
     quat_tensor = torch.tensor([pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z, pose_msg.pose.orientation.w], dtype=torch.float32)
     
-    # Convert quaternion to rotation vector (axis-angle representation)
-    rotation = Rotation.from_quat(quat_tensor.numpy()) 
-    rotvec = rotation.as_rotvec()
-    tf = RotationTransformer()
-    rot6d_tensor = torch.tensor(tf.forward(rotvec), dtype=torch.float32)
+    tf = RotationTransformer(from_rep='quaternion', to_rep='rotation_6d')
+    rot6d_tensor = torch.tensor(tf.forward(quat_tensor), dtype=torch.float32)
     
     # Concatenate position and rotation vector tensors
     panda_arm_ee_pose_tensor = torch.cat([position_tensor, rot6d_tensor], dim=0)
-
+    print(f"panda_arm_ee_pose_tensor shape: {panda_arm_ee_pose_tensor.shape}")
     return panda_arm_ee_pose_tensor
 
 
@@ -61,14 +58,16 @@ def operator_arm_pose_to_tensor(pose_msg, side, t):
     quat_tensor = torch.tensor([pose_msg.quat.x, pose_msg.quat.y, pose_msg.quat.z, pose_msg.quat.w], dtype=torch.float32)
     
     # Convert quaternion to rotation vector (axis-angle representation)
-    rotation = Rotation.from_quat(quat_tensor.numpy()) 
-    rotvec = rotation.as_rotvec()
-    tf = RotationTransformer()
-    rot6d_tensor = torch.tensor(tf.forward(rotvec), dtype=torch.float32)
+    # rotation = Rotation.from_quat(quat_tensor.numpy()) 
+    # rotvec = rotation.as_rotvec()
+    # tf = RotationTransformer()
+    # rot6d_tensor = torch.tensor(tf.forward(rotvec), dtype=torch.float32)
+    tf = RotationTransformer(from_rep='quaternion', to_rep='rotation_6d')
+    rot6d_tensor = torch.tensor(tf.forward(quat_tensor), dtype=torch.float32)
     
     # Concatenate position, rotation vector
     operator_ee_pose_tensor = torch.cat([position_tensor, rot6d_tensor], dim=0)
-
+    print(f"operator_ee_pose_tensor shape: {operator_ee_pose_tensor.shape}")
     return operator_ee_pose_tensor
 
 
@@ -80,22 +79,22 @@ def rdda_packet_to_tensor(rdda_packet: RDDAPacket, mode: str, t: Clock):
     wave_tensor = torch.tensor(rdda_packet.wave, dtype=torch.float32)
     pressure_tensor = torch.tensor(rdda_packet.pressure, dtype=torch.float32)
     
-    # Debugging prints to check tensor shapes
-    print(f"pos_tensor shape: {pos_tensor.shape}")
-    print(f"pos_desired_tensor shape: {pos_desired_tensor.shape}")
-    print(f"vel_tensor shape: {vel_tensor.shape}")
-    print(f"tau_tensor shape: {tau_tensor.shape}")
-    print(f"wave_tensor shape: {wave_tensor.shape}")
-    print(f"pressure_tensor shape: {pressure_tensor.shape}")
+    # # Debugging prints to check tensor shapes
+    # print(f"pos_tensor shape: {pos_tensor.shape}")
+    # print(f"pos_desired_tensor shape: {pos_desired_tensor.shape}")
+    # print(f"vel_tensor shape: {vel_tensor.shape}")
+    # print(f"tau_tensor shape: {tau_tensor.shape}")
+    # print(f"wave_tensor shape: {wave_tensor.shape}")
+    # print(f"pressure_tensor shape: {pressure_tensor.shape}")
 
     obs_from_state = None
     action_stuff = None
 
     if mode == "teacher_aware":
         # We don't feed haptics to the model, it's only supposed to be implicitly learned
-        obs_from_state = torch.cat([pos_tensor, vel_tensor, pos_desired_tensor], dim=0)
+        obs_from_state = torch.cat([pos_tensor, vel_tensor], dim=0)
         action_stuff = torch.cat([pos_desired_tensor, wave_tensor], dim=0)
-    elif mode == "policy_aware":
+    elif mode == "policy_aware": # TODO: check the obs and action tensors of the gripper/glove here
         obs_from_state = torch.cat([pos_tensor, vel_tensor, tau_tensor, pos_desired_tensor, pressure_tensor], dim=0)
         action_stuff = torch.cat([wave_tensor, pos_desired_tensor], dim=0)
 
