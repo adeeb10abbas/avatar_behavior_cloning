@@ -24,7 +24,7 @@ from diffusion_policy.common.cv2_util import get_image_transform
 from diffusion_policy.real_world.real_inference_util import get_real_obs_resolution, get_real_obs_dict
 from diffusion_policy.common.pytorch_util import dict_apply
 from diffusion_policy.common.precise_sleep import precise_wait
-
+from diffusion_policy.model.common.rotation_transformer import RotationTransformer
 
 class DiffusionROSInterface:
     def __init__(self, input, output):
@@ -50,7 +50,7 @@ class DiffusionROSInterface:
             self.state_obs_right_arm_sub,
         ]
         self.ts = message_filters.ApproximateTimeSynchronizer(obs_subs, 10)
-        self.ts.registerCallback(self.image_callback)
+        self.ts.registerCallback(self.obs_callback)
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # load checkpoint
@@ -84,7 +84,7 @@ class DiffusionROSInterface:
         else:
             raise NotImplementedError(f"Unknown model type: {self.cfg.name}")
 
-    def image_callback(self, img1, img2, img3, state1, state2, state3, state4):
+    def obs_callback(self, img1, img2, img3, state1, state2, state3, state4):
         """
         Args:
             img1 (Image): left camera image
@@ -116,20 +116,30 @@ class DiffusionROSInterface:
 
         np_state1 = np.concatenate((state1.wave, state1.pos_d))
         np_state2 = np.concatenate((state2.wave, state2.pos_d))
-        np_state3 = np.array(
-            [state3.position.x, state3.position.y, state3.position.z, state3.quat.x, state3.quat.y, state3.quat.z, state3.quat.w]
-        )
-        np_state4 = np.array(
-            [state4.position.x, state4.position.y, state4.position.z, state4.quat.x, state4.quat.y, state4.quat.z, state4.quat.w]
-        )
+        assert np_state1.shape == (6,)
+        assert np_state2.shape == (6,)
+        
+        # To use pytorch3d's conversion function, we need real part first quaternion
+        np_position3 = np.array([state3.position.x, state3.position.y, state3.position.z])
+        np_position4 = np.array([state4.position.x, state4.position.y, state4.position.z])
+        np_quat3 = np.array([state3.quat.w, state3.quat.x, state3.quat.y, state3.quat.z])
+        np_quat4 = np.array([state4.quat.w, state4.quat.x, state4.quat.y, state4.quat.z])
+        
+        tf = RotationTransformer(from_rep='quaternion', to_rep='rotation_6d')
+        np_state3 = np.concatenate((np_position3, tf.forward(np_quat3)))
+        np_state4 = np.concatenate((np_position4, tf.forward(np_quat4)))
+
+        assert np_state3.shape == (9,)
+        assert np_state4.shape == (9,)
+        
         self.obs_dict = {
             "usb_cam_left": cv_image1,
             "usb_cam_right": cv_image2,
             "usb_cam_table": cv_image3,
-            "left_gripper_state": np_state1,
-            "right_gripper_state": np_state2,
-            "left_arm_state": np_state3,
-            "right_arm_state": np_state4,
+            "left_gripper_state": np_state1,      # 6D 
+            "right_gripper_state": np_state2,     # 6D
+            "left_arm_state": np_state3,          # 9D
+            "right_arm_state": np_state4,         # 9D
             "timestamp": img_timestamp,
         }
 
@@ -167,10 +177,14 @@ class DiffusionROSInterface:
             packet.position.x = action[0]
             packet.position.y = action[1]
             packet.position.z = action[2]
-            packet.quat.x = action[3]
-            packet.quat.y = action[4]
-            packet.quat.z = action[5]
-            packet.quat.w = action[6]
+            rotation_6d = action[3:]
+            assert len(rotation_6d) == 6
+            tf = RotationTransformer(from_rep='rotation_6d', to_rep='quaternion')
+            quat = tf.forward(rotation_6d)
+            packet.quat.w = quat[0]
+            packet.quat.x = quat[1]
+            packet.quat.y = quat[2]
+            packet.quat.z = quat[3]
 
             packet.timestamp = rospy.get_rostime()
 
@@ -196,11 +210,11 @@ class DiffusionROSInterface:
         """
         Parse the tensor action to the corresponding actions for the left gripper, right gripper, left arm and right arm
         """
-        assert action.shape[-1] == 26
+        assert action.shape[-1] == 30
         left_gripper_action = action[:, 0:6]  # N x 6
         right_gripper_action = action[:, 6:12]  # N x 6
-        left_arm_action = action[:, 12:19]  # N x 7
-        right_arm_action = action[:, 19:26]  # N x 7
+        left_arm_action = action[:, 12:21]  # N x 9
+        right_arm_action = action[:, 21:30]  # N x 9
         return left_gripper_action, right_gripper_action, left_arm_action, right_arm_action
 
     def main(self):
