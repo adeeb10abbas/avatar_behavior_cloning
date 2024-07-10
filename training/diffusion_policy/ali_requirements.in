@@ -1,0 +1,7 @@
+hydra-core
+dill
+wandb
+einops
+diffusers
+zarr
+
