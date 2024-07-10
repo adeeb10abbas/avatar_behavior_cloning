@@ -172,6 +172,7 @@ class MultiImageObsEncoder(ModuleAttrMixin):
                 batch_size = data.shape[0]
             else:
                 assert batch_size == data.shape[0]
+                # import pdb; pdb.set_trace()
             assert data.shape[1:] == self.key_shape_map[key]
             features.append(data)
         

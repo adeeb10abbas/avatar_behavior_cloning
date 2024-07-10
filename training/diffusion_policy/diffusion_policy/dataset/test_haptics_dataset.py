@@ -16,8 +16,8 @@ class TestAvatarHapticsImageDataset(unittest.TestCase):
             "usb_cam_right": np.random.rand(10, 640, 480, 3),
             "usb_cam_left": np.random.rand(10, 640, 480, 3),
             "usb_cam_table": np.random.rand(10, 640, 480, 3),
-            "left_smarty_arm_output": np.random.rand(10, 7),
-            "right_smarty_arm_output": np.random.rand(10, 7),
+            "left_arm_pose": np.random.rand(10, 7),
+            "right_arm_pose": np.random.rand(10, 7),
             "rdda_right_obs": np.random.rand(10, 9),
             "rdda_left_obs": np.random.rand(10, 9),
             "action": np.random.rand(10, 26)
@@ -31,8 +31,8 @@ class TestAvatarHapticsImageDataset(unittest.TestCase):
             "usb_cam_right": np.random.rand(10, 640, 480, 3),
             "usb_cam_left": np.random.rand(10, 640, 480, 3),
             "usb_cam_table": np.random.rand(10, 640, 480, 3),
-            "left_smarty_arm_output": np.random.rand(10, 7),
-            "right_smarty_arm_output": np.random.rand(10, 7),
+            "left_arm_pose": np.random.rand(10, 7),
+            "right_arm_pose": np.random.rand(10, 7),
             "rdda_right_obs": np.random.rand(10, 9),
             "rdda_left_obs": np.random.rand(10, 9),
             "action": np.random.rand(10, 26)
@@ -45,8 +45,8 @@ class TestAvatarHapticsImageDataset(unittest.TestCase):
                 "usb_cam_right": {"shape": [3, 640, 480], "type": "rgb"},
                 "usb_cam_left": {"shape": [3, 640, 480], "type": "rgb"},
                 "usb_cam_table": {"shape": [3, 640, 480], "type": "rgb"},
-                "left_smarty_arm_output": {"shape": [7], "type": "low_dim"},
-                "right_smarty_arm_output": {"shape": [7], "type": "low_dim"},
+                "left_arm_pose": {"shape": [7], "type": "low_dim"},
+                "right_arm_pose": {"shape": [7], "type": "low_dim"},
                 "rdda_right_obs": {"shape": [9], "type": "low_dim"},
                 "rdda_left_obs": {"shape": [9], "type": "low_dim"}
             },
@@ -54,7 +54,7 @@ class TestAvatarHapticsImageDataset(unittest.TestCase):
         }
 
         dataset = AvatarHapticsImageDataset(
-            dataset_path="/home/ali/shared_volume/processed_bottle_pick_data/finer/teacher_aware_out/_replay_buffer.zarr",
+            dataset_path="/home/ali/shared_volume/bottle_pick/teacher_aware_pkl/_replay_buffer.zarr",
             shape_meta=shape_meta,
             horizon=8,
             n_obs_steps=2,

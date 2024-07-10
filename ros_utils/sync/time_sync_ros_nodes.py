@@ -20,6 +20,7 @@ def callback(image_left, image_right, image_table, right_smarty_arm, left_smarty
     
     bag_out.write('/left_arm_pose', left_arm_pose, left_arm_pose.header.stamp)
     bag_out.write('/right_arm_pose', right_arm_pose, right_arm_pose.header.stamp)
+    assert(left_arm_pose and right_arm_pose)
     assert(right_glove and left_glove)  # Ensure both glove data are available
     
     bag_out.write('/throttled_rdda_l_master_output', right_glove, right_glove.header.stamp)

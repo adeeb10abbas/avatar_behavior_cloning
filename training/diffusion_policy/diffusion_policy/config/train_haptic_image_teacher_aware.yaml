@@ -31,7 +31,7 @@ shape_meta: &shape_meta
     left_arm_pose:
       shape: [9] # left robot EE pose
       type: low_dim
-    left_arm_pose:
+    right_arm_pose:
       shape: [9] # right robot EE pose
       type: low_dim
     rdda_right_obs:
@@ -41,14 +41,14 @@ shape_meta: &shape_meta
       shape: [6] # pos_tensor, vel_tensor
       type: low_dim
   action:
-    shape: [26]
+    shape: [30]
     # addition here - rdda_right_act (6)[wave, pos_d] + rdda_left_act(6) [wave, pos_d] + left_operator_ee_pose(9) 
     # + right_arm_ee_pose(9) 
 
 task:
   name: haptic_image_teacher_aware
   task_name: bottle_pick
-  dataset_path: /home/ali/shared_volume/processed_bottle_pick_data/finer/teacher_aware_out/_replay_buffer.zarr
+  dataset_path: /home/ali/shared_volume/bottle_pick/teacher_aware_pkl/_replay_buffer.zarr
   dataset_type: ph
   abs_action: ${abs_action}
   shape_meta: ${shape_meta}
@@ -122,7 +122,7 @@ ema:
   max_value: 0.9999
 
 dataloader:
-  batch_size: 24
+  batch_size: 36
   num_workers: 14
   shuffle: False
   pin_memory: False
@@ -150,7 +150,7 @@ training:
   # optimization
   lr_scheduler: cosine
   lr_warmup_steps: 500
-  num_epochs: 250
+  num_epochs: 300
   gradient_accumulate_every: 1
   # EMA destroys performance when used with BatchNorm
   # replace BatchNorm with GroupNorm.
@@ -160,7 +160,7 @@ training:
   # in epochs
   rollout_every: 50
   checkpoint_every: 50
-  val_every: 10
+  val_every: 20
   sample_every: 5
   # steps per epoch
   max_train_steps: null

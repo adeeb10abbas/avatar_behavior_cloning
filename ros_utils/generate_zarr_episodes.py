@@ -52,6 +52,8 @@ def main(input_pkl_file_path):
                 del data_to_save[key]
 
         # Add processed data to replay buffer
+        assert len(set(data_to_save.keys()))== len(data_to_save.keys()) 
+        # import pdb; pdb.set_trace()
         replay_buffer.add_episode(data_to_save, compressors='disk')
         print("Added data from pkl file to Zarr: %s" % pkl_file)
         

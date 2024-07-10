@@ -67,12 +67,13 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
                 tensor = topic_handlers[topic](msg, t=t)
                 if "throttled" in topic:
                     if mode == "teacher_aware": 
-                        obs_tensor = tensor[:9] # 9
-                        action_tensor = tensor[9:] # 6
+                        # Teacher Aware
+                        obs_tensor = tensor[:6] # 6
+                        action_tensor = tensor[6:] # 6
 
                     else: ## Policy Aware
-                        obs_tensor = tensor[:18] # 15
-                        action_tensor = tensor[18:] # 6
+                        obs_tensor = tensor[:15] # 15
+                        action_tensor = tensor[15:] # 6
 
                     data_structure["rdda_left_act" if "rdda_l" in topic else "rdda_right_act"].append(action_tensor)
                     data_structure["rdda_left_obs" if "rdda_l" in topic else "rdda_right_obs"].append(obs_tensor)
