@@ -152,8 +152,27 @@ class DiffusionROSInterface:
         """
         # Since all the synchornization has been done by the filter, we can directly return the obs_dict
         obs_dict = copy.deepcopy(self.obs_dict)
+    
         return obs_dict
 
+    def interpolate_action(self, action_low_freq:np.ndarray, target_freq: int) -> np.ndarray:
+        """
+        Interpolate the low frequency actions to match the frequency of the robot control
+        """
+        print("Input low frequency action shape: ", action_low_freq.shape)
+        scale = target_freq // self.frequency
+
+        # Linear interpolation
+        interpolated_action = np.zeros(((len(action_low_freq)-1) * scale + 1, action_low_freq.shape[-1]))
+        for i in range(len(action_low_freq) - 2):
+            interpolated_action[i:i+scale,:] = np.linspace(action_low_freq[i], action_low_freq[i+1], scale+1)[:-1]
+        
+        assert interpolated_action[0] == action_low_freq[0]
+        assert interpolated_action[-1] == action_low_freq[-1]
+        print("Interpolated action shape: ", interpolated_action.shape)
+        
+        return interpolated_action
+    
     def publish_actions(self, action_tuple: Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]):
         """
         Publish the actions to the grippers and arms through ROS
@@ -190,21 +209,33 @@ class DiffusionROSInterface:
 
             return packet
 
-        for step in range(len(action_tuple[0])):
+        action_publish_rate = 1000
+               
+        left_gripper_action = self.interpolate_action(action_tuple[0], action_publish_rate)
+        right_gripper_action = self.interpolate_action(action_tuple[1], action_publish_rate)
+        left_arm_action = self.interpolate_action(action_tuple[2], action_publish_rate)
+        right_arm_action = self.interpolate_action(action_tuple[3], action_publish_rate)
+        
+        for step in range(len(left_gripper_action)):
             t = time.monotonic()
-            left_gripper_packet = create_RDDAPacket(action_tuple[0][step])
-            right_gripper_packet = create_RDDAPacket(action_tuple[1][step])
-            left_arm_packet = create_PTIPacket(action_tuple[2][step])
-            right_arm_packet = create_PTIPacket(action_tuple[3][step])
+            left_gripper_packet = create_RDDAPacket(left_gripper_action[step])
+            right_gripper_packet = create_RDDAPacket(right_gripper_action[step])
+            left_arm_packet = create_PTIPacket(left_arm_action[step])
+            right_arm_packet = create_PTIPacket(right_arm_action[step])
 
             self.left_gripper_master_pub.publish(left_gripper_packet)
             self.right_gripper_master_pub.publish(right_gripper_packet)
             self.left_smarty_arm_pub.publish(left_arm_packet)
             self.right_smarty_arm_pub.publish(right_arm_packet)
-            print(f"Publishing time: {time.monotonic() - t} seconds")
-
-            ## TODO Sleep??
-            time.sleep(0.1)
+            
+            elapsed = time.monotonic() - t
+            print(f"Publishing elapsed: {elapsed} seconds")
+            if (1.0/action_publish_rate - elapsed) > 0:
+                time.sleep(1.0/action_publish_rate - elapsed)
+            else:
+                print("Publishing time exceeds the time budget")
+        
+        print("All actions published successfully!")
 
     def parse_tensor_actions(self, action: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
@@ -292,6 +323,7 @@ class DiffusionROSInterface:
                     # wait for execution
                     precise_wait(t_cycle_end - frame_latency)
                     iter_idx += self.steps_per_inference
+                    
         except KeyboardInterrupt:
             print("Shutting down...")
 
