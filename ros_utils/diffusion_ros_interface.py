@@ -27,18 +27,18 @@ from diffusion_policy.common.precise_sleep import precise_wait
 from diffusion_policy.model.common.rotation_transformer import RotationTransformer
 
 class DiffusionROSInterface:
-    def __init__(self, input, output):
-        self.left_gripper_master_pub = rospy.Publisher("/rdda_left_master_output", RDDAPacket, queue_size=10)
+    def __init__(self, input):
+        self.left_gripper_master_pub = rospy.Publisher("/rdda_l_master_output", RDDAPacket, queue_size=10)
         self.right_gripper_master_pub = rospy.Publisher("/rdda_right_master_output", RDDAPacket, queue_size=10)
         self.left_smarty_arm_pub = rospy.Publisher("/left_smarty_arm_output", PTIPacket, queue_size=10)
         self.right_smarty_arm_pub = rospy.Publisher("/right_smarty_arm_output", PTIPacket, queue_size=10)
         self.images_obs_sub1 = message_filters.Subscriber("/usb_cam_left/image_raw", Image)
         self.images_obs_sub2 = message_filters.Subscriber("/usb_cam_right/image_raw", Image)
         self.images_obs_sub3 = message_filters.Subscriber("/usb_cam_table/image_raw", Image)
-        self.state_obs_left_gripper_sub = message_filters.Subscriber("/rdda_left_master_input", RDDAPacket)
+        self.state_obs_left_gripper_sub = message_filters.Subscriber("/rdda_l_master_input", RDDAPacket)
         self.state_obs_right_gripper_sub = message_filters.Subscriber("/rdda_right_master_input", RDDAPacket)
-        self.state_obs_left_arm_sub = message_filters.Subscriber("/left_smarty_arm_input", PTIPacket)
-        self.state_obs_right_arm_sub = message_filters.Subscriber("/right_smarty_arm_input", PTIPacket)
+        self.state_obs_left_arm_sub = message_filters.Subscriber("/pti_interface_left/pti_output", PTIPacket)
+        self.state_obs_right_arm_sub = message_filters.Subscriber("/pti_interface_right/pti_output", PTIPacket)
 
         obs_subs = [
             self.images_obs_sub1,
@@ -49,7 +49,7 @@ class DiffusionROSInterface:
             self.state_obs_left_arm_sub,
             self.state_obs_right_arm_sub,
         ]
-        self.ts = message_filters.ApproximateTimeSynchronizer(obs_subs, 10)
+        self.ts = message_filters.ApproximateTimeSynchronizer(obs_subs, 10, slop=0.5)
         self.ts.registerCallback(self.obs_callback)
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -57,6 +57,7 @@ class DiffusionROSInterface:
         ckpt_path = input
         payload = torch.load(open(ckpt_path, "rb"), pickle_module=dill)
         self.cfg = payload["cfg"]
+        print(self.cfg)
         cls = hydra.utils.get_class(self.cfg._target_)
         workspace = cls(self.cfg)
         workspace: BaseWorkspace
@@ -65,7 +66,7 @@ class DiffusionROSInterface:
         # hacks for method-specific setup.
         self.frequency = 10
         self.dt = 1.0 / self.frequency
-        self.steps_per_inference = 6
+        self.steps_per_inference = self.cfg['n_action_steps']
 
         if "diffusion" in self.cfg.name:
             # diffusion model
@@ -76,13 +77,17 @@ class DiffusionROSInterface:
 
             device = torch.device("cuda")
             self.policy.eval().to(device)
+            rospy.loginfo("Policy evaluated")
 
             # set inference params
-            self.policy.num_inference_steps = 100  # DDIM inference iterations
+            # self.policy.num_inference_steps = 100  # DDIM inference iterations
             # (TODO: Double check this)
             self.policy.n_action_steps = self.policy.horizon - self.policy.n_obs_steps + 1
         else:
             raise NotImplementedError(f"Unknown model type: {self.cfg.name}")
+        
+        rospy.loginfo("Model Loaded!")
+        self.obs_ready = False
 
     def obs_callback(self, img1, img2, img3, state1, state2, state3, state4):
         """
@@ -97,9 +102,9 @@ class DiffusionROSInterface:
         """
         bridge = CvBridge()
         try:
-            cv_image1 = bridge.imgmsg_to_cv2(img1, desired_encoding="passthrough")
-            cv_image2 = bridge.imgmsg_to_cv2(img2, desired_encoding="passthrough")
-            cv_image3 = bridge.imgmsg_to_cv2(img3, desired_encoding="passthrough")
+            cv_image1 = bridge.imgmsg_to_cv2(img1, desired_encoding="passthrough")[np.newaxis, :]
+            cv_image2 = bridge.imgmsg_to_cv2(img2, desired_encoding="passthrough")[np.newaxis, :]
+            cv_image3 = bridge.imgmsg_to_cv2(img3, desired_encoding="passthrough")[np.newaxis, :]
 
         except CvBridgeError as e:
             rospy.logerr(f"CvBridge Error: {e}")
@@ -112,7 +117,7 @@ class DiffusionROSInterface:
             + state3.header.stamp.to_sec()
             + state4.header.stamp.to_sec()
         ) / 4
-        rospy.loginfo(f"Image average timestamp: {img_timestamp}, State average timestamp: {state_timestamp}")
+        # rospy.loginfo(f"Image average timestamp: {img_timestamp}, State average timestamp: {state_timestamp}")
 
         np_state1 = np.concatenate((state1.wave, state1.pos_d))
         np_state2 = np.concatenate((state2.wave, state2.pos_d))
@@ -132,16 +137,20 @@ class DiffusionROSInterface:
         assert np_state3.shape == (9,)
         assert np_state4.shape == (9,)
         
+        
         self.obs_dict = {
             "usb_cam_left": cv_image1,
             "usb_cam_right": cv_image2,
             "usb_cam_table": cv_image3,
-            "left_gripper_state": np_state1,      # 6D 
-            "right_gripper_state": np_state2,     # 6D
-            "left_arm_state": np_state3,          # 9D
-            "right_arm_state": np_state4,         # 9D
+            "rdda_left_obs": np_state1,      # 6D 
+            "rdda_right_obs": np_state2,     # 6D
+            "left_arm_pose": np_state3,          # 9D  9 x 2
+            "right_arm_pose": np_state4,         # 9D
             "timestamp": img_timestamp,
         }
+        
+        self.obs_ready = True
+        # import pdb; pdb.set_trace()
 
     def get_obs(self) -> dict:
         """
@@ -151,6 +160,14 @@ class DiffusionROSInterface:
             obs_dict (dict): a dictionary containing the synchronized observations.
         """
         # Since all the synchornization has been done by the filter, we can directly return the obs_dict
+        while (not self.obs_ready):
+            try:
+                rospy.loginfo("Waiting for observations...")
+                time.sleep(0.5)
+            except KeyboardInterrupt:
+                rospy.loginfo("Shutting down...")
+                exit()
+            
         obs_dict = copy.deepcopy(self.obs_dict)
     
         return obs_dict
@@ -251,17 +268,24 @@ class DiffusionROSInterface:
     def main(self):
         print("Warming up policy inference")
         obs = self.get_obs()
+        
         with torch.no_grad():
             self.policy.reset()
             obs_dict_np = get_real_obs_dict(env_obs=obs, shape_meta=self.cfg.task.shape_meta)
+            
             obs_dict = dict_apply(obs_dict_np, lambda x: torch.from_numpy(x).unsqueeze(0).to(self.device))
+            print("In warming")
+            print(obs_dict['left_arm_pose'].shape)
+            # import pdb; pdb.set_trace()
             result = self.policy.predict_action(obs_dict)
             action = result["action"][0].detach().to("cpu").numpy()
             assert action.shape[-1] == 2
             del result
 
         print("Ready!")
+        print(action)
         # Feed the observation into the model
+        exit()
         try:
             # Don't know if we really need this (TODO)
             self.policy.reset()
@@ -330,6 +354,6 @@ class DiffusionROSInterface:
 
 if __name__ == "__main__":
     rospy.init_node("diffusion_ros_interface")
-    diffusion_ros_interface = DiffusionROSInterface()
+    diffusion_ros_interface = DiffusionROSInterface(input="../weights/epoch=0100-train_loss=0.012-001.ckpt")
     diffusion_ros_interface.main()
     rospy.spin()
