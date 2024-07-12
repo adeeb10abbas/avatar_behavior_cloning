@@ -29,10 +29,10 @@ from diffusion_policy.model.common.rotation_transformer import RotationTransform
 
 class DiffusionROSInterface:
     def __init__(self, input):
-        self.left_gripper_master_pub = rospy.Publisher("/rdda_l_master_output", RDDAPacket, queue_size=10)
-        self.right_gripper_master_pub = rospy.Publisher("/rdda_right_master_output", RDDAPacket, queue_size=10)
-        self.left_smarty_arm_pub = rospy.Publisher("/left_smarty_arm_output", PTIPacket, queue_size=10)
-        self.right_smarty_arm_pub = rospy.Publisher("/right_smarty_arm_output", PTIPacket, queue_size=10)
+        self.left_gripper_master_pub = rospy.Publisher("/rdda_l_master_output_", RDDAPacket, queue_size=10)
+        self.right_gripper_master_pub = rospy.Publisher("/rdda_right_master_output_", RDDAPacket, queue_size=10)
+        self.left_smarty_arm_pub = rospy.Publisher("/left_smarty_arm_output_", PTIPacket, queue_size=10)
+        self.right_smarty_arm_pub = rospy.Publisher("/right_smarty_arm_output_", PTIPacket, queue_size=10)
         self.images_obs_sub1 = message_filters.Subscriber("/usb_cam_left/image_raw", Image)
         self.images_obs_sub2 = message_filters.Subscriber("/usb_cam_right/image_raw", Image)
         self.images_obs_sub3 = message_filters.Subscriber("/usb_cam_table/image_raw", Image)
@@ -218,22 +218,21 @@ class DiffusionROSInterface:
         """
         Interpolate the low frequency actions to match the frequency of the robot control
         """
-        print("Input low frequency action shape: ", action_low_freq.shape)
+        # print("Input low frequency action shape: ", action_low_freq.shape)
         if action_low_freq.shape[0] < 2:
             print("Action length less than 2, no need to interpolate")
             return action_low_freq
         
         scale = target_freq // self.frequency
-
+        assert scale > 0
+        # print("Scale: ", scale)
         # Linear interpolation
         interpolated_action = np.zeros(((len(action_low_freq)-1) * scale + 1, action_low_freq.shape[-1]))
         for i in range(len(action_low_freq) - 1):
-            interpolated_action[i:i+scale,:] = np.linspace(action_low_freq[i], action_low_freq[i+1], scale+1)[:-1]
+            interpolated_action[i*scale:i*scale+scale,:] = np.linspace(action_low_freq[i], action_low_freq[i+1], scale+1)[:-1]
         
         interpolated_action[-1] = action_low_freq[-1]
         # import pdb; pdb.set_trace()
-        print("Interpolated action shape: ", interpolated_action.shape)
-        print("action_low_freq shape: ", action_low_freq.shape)
         
         if np.any(interpolated_action[0] != action_low_freq[0]):
             print("First element not equal")
@@ -248,7 +247,11 @@ class DiffusionROSInterface:
             exit()
         assert np.all(interpolated_action[0] == action_low_freq[0])
         assert np.all(interpolated_action[-1] == action_low_freq[-1])
-        print("Interpolated action shape: ", interpolated_action.shape)
+        # print("==============")
+        # print(interpolated_action)
+        # print("==============")
+        # print(action_low_freq)
+        # print("Interpolated action shape: ", interpolated_action.shape)
         
         return interpolated_action
     
@@ -288,7 +291,7 @@ class DiffusionROSInterface:
 
             return packet
 
-        action_publish_rate = 1000
+        action_publish_rate = 20
                
         left_gripper_action = self.interpolate_action(action_tuple[0], action_publish_rate)
         right_gripper_action = self.interpolate_action(action_tuple[1], action_publish_rate)
@@ -308,7 +311,7 @@ class DiffusionROSInterface:
             self.right_smarty_arm_pub.publish(right_arm_packet)
             
             elapsed = time.monotonic() - t
-            print(f"Publishing elapsed: {elapsed} seconds")
+            # print(f"Publishing elapsed: {elapsed} seconds")
             if (1.0/action_publish_rate - elapsed) > 0:
                 time.sleep(1.0/action_publish_rate - elapsed)
             else:
@@ -364,15 +367,14 @@ class DiffusionROSInterface:
                 t_cycle_end = t_start + (iter_idx + self.steps_per_inference) * self.dt
 
                 # get obs
-                print("get_obs")
                 obs = self.get_obs()
                 obs_timestamps = obs["timestamp"]
                 print(f"Obs latency {time.time() - obs_timestamps[-1]}")
                 with torch.no_grad():
-                    s = time.monotonic()
                     self.policy.reset()
                     obs_dict_np = get_real_obs_dict(env_obs=obs, shape_meta=self.cfg.task.shape_meta)
                     obs_dict = dict_apply(obs_dict_np, lambda x: torch.from_numpy(x).unsqueeze(0).to(self.device))
+                    s = time.monotonic()
                     result = self.policy.predict_action(obs_dict)
                     action = result["action"][0].detach().to("cpu").numpy()
                     print(f"Model inference time: {time.monotonic() - s} seconds")
