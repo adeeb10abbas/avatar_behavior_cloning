@@ -28,7 +28,7 @@ from diffusion_policy.common.precise_sleep import precise_wait
 from diffusion_policy.model.common.rotation_transformer import RotationTransformer
 
 class DiffusionROSInterface:
-    def __init__(self, input, fake_data=False):
+    def __init__(self, input, fake_data=True):
         self.left_gripper_master_pub = rospy.Publisher("/rdda_l_master_output_", RDDAPacket, queue_size=10)
         self.right_gripper_master_pub = rospy.Publisher("/rdda_right_master_output_", RDDAPacket, queue_size=10)
         self.left_smarty_arm_pub = rospy.Publisher("/left_smarty_arm_output_", PTIPacket, queue_size=10)
@@ -170,7 +170,7 @@ class DiffusionROSInterface:
             obs_dict (dict): a dictionary containing the synchronized observations.
         """
         # Since all the synchornization has been done by the filter, we can directly return the obs_dict
-        while (not self.obs_ready):
+        while (not self.obs_ready and not self.fake_data):
             try:
                 rospy.loginfo("Waiting for observations...")
                 time.sleep(0.5)
