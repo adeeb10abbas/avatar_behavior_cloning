@@ -28,7 +28,7 @@ from diffusion_policy.common.precise_sleep import precise_wait
 from diffusion_policy.model.common.rotation_transformer import RotationTransformer
 
 class DiffusionROSInterface:
-    def __init__(self, input):
+    def __init__(self, input, fake_data=False):
         self.left_gripper_master_pub = rospy.Publisher("/rdda_l_master_output_", RDDAPacket, queue_size=10)
         self.right_gripper_master_pub = rospy.Publisher("/rdda_right_master_output_", RDDAPacket, queue_size=10)
         self.left_smarty_arm_pub = rospy.Publisher("/left_smarty_arm_output_", PTIPacket, queue_size=10)
@@ -61,6 +61,7 @@ class DiffusionROSInterface:
             'right_arm_pose': deque(maxlen=10),
             'timestamp': deque(maxlen=10),
         }
+        self.fake_data = fake_data
         
         self.ts = message_filters.ApproximateTimeSynchronizer(obs_subs, 10, slop=0.5)
         self.ts.registerCallback(self.obs_callback)
@@ -115,9 +116,9 @@ class DiffusionROSInterface:
         """
         bridge = CvBridge()
         try:
-            cv_image1 = bridge.imgmsg_to_cv2(img1, desired_encoding="passthrough")[np.newaxis, :]
-            cv_image2 = bridge.imgmsg_to_cv2(img2, desired_encoding="passthrough")[np.newaxis, :]
-            cv_image3 = bridge.imgmsg_to_cv2(img3, desired_encoding="passthrough")[np.newaxis, :]
+            cv_image1 = bridge.imgmsg_to_cv2(img1, desired_encoding="passthrough")
+            cv_image2 = bridge.imgmsg_to_cv2(img2, desired_encoding="passthrough")
+            cv_image3 = bridge.imgmsg_to_cv2(img3, desired_encoding="passthrough")
 
         except CvBridgeError as e:
             rospy.logerr(f"CvBridge Error: {e}")
@@ -169,48 +170,47 @@ class DiffusionROSInterface:
             obs_dict (dict): a dictionary containing the synchronized observations.
         """
         # Since all the synchornization has been done by the filter, we can directly return the obs_dict
-        # while (not self.obs_ready):
-        #     try:
-        #         rospy.loginfo("Waiting for observations...")
-        #         time.sleep(0.5)
-        #     except KeyboardInterrupt:
-        #         rospy.loginfo("Shutting down...")
-        #         exit()
+        while (not self.obs_ready):
+            try:
+                rospy.loginfo("Waiting for observations...")
+                time.sleep(0.5)
+            except KeyboardInterrupt:
+                rospy.loginfo("Shutting down...")
+                exit()
             
         t = time.monotonic()
         obs_dict = copy.deepcopy(self.obs_dict)
         print(f"Get obs elapsed: {time.monotonic() - t} seconds")
-        
-        cv_image1 = np.random.rand(480, 640 ,3)
-        cv_image2 = np.random.rand(480, 640 ,3)
-        cv_image3 = np.random.rand(480, 640, 3)
-        np_state1 = np.random.rand(6)
-        np_state2 = np.random.rand(6)
-        np_state3 = np.random.rand(9)
-        np_state4 = np.random.rand(9)
-        img_timestamp = time.time()
-        
-        ## Simulate 2 steps of history
-        for i in range(2):
-            self.obs_history['usb_cam_left'].append(cv_image1)
-            self.obs_history['usb_cam_right'].append(cv_image2)
-            self.obs_history['usb_cam_table'].append(cv_image3)
-            self.obs_history['rdda_left_obs'].append(np_state1)
-            self.obs_history['rdda_right_obs'].append(np_state2)
-            self.obs_history['left_arm_pose'].append(np_state3)
-            self.obs_history['right_arm_pose'].append(np_state4)
-            self.obs_history['timestamp'].append(img_timestamp)
+
+        if self.fake_data == False:
+            self.obs_history['usb_cam_left'].append(obs_dict['usb_cam_left'])
+            self.obs_history['usb_cam_right'].append(obs_dict['usb_cam_right'])
+            self.obs_history['usb_cam_table'].append(obs_dict['usb_cam_table'])
+            self.obs_history['rdda_left_obs'].append(obs_dict['rdda_left_obs'])
+            self.obs_history['rdda_right_obs'].append(obs_dict["rdda_left_obs"])
+            self.obs_history['left_arm_pose'].append(obs_dict['left_arm_pose'])
+            self.obs_history['right_arm_pose'].append(obs_dict['right_arm_pose'])
+            self.obs_history['timestamp'].append(obs_dict['timestamp'])
+        else:
+            self.obs_history['usb_cam_left'].append(np.random.rand(480, 640 ,3))
+            self.obs_history['usb_cam_right'].append(np.random.rand(480, 640 ,3))
+            self.obs_history['usb_cam_table'].append(np.random.rand(480, 640, 3))
+            self.obs_history['rdda_left_obs'].append(np.random.rand(6))
+            self.obs_history['rdda_right_obs'].append(np.random.rand(6))
+            self.obs_history['left_arm_pose'].append(np.random.rand(9))
+            self.obs_history['right_arm_pose'].append(np.random.rand(9))
+            self.obs_history['timestamp'].append(time.time())
+            rospy.logwarn("Using fake data...")
+                
         
         obs_dict = dict_apply(self.obs_history, lambda x: np.array(x))
         # print(obs_dict['usb_cam_left'].shape)
         # print(obs_dict['left_arm_pose'].shape)
         
         # Pop the pulled observations
-        for key, item in self.obs_history.items():
-            self.obs_history[key].popleft()
-            self.obs_history[key].popleft()
-        
-        rospy.loginfo("Using fake data for now...")
+        # for key, item in self.obs_history.items():
+        #     if len(item) > 1:
+        #         self.obs_history[key].popleft()
         
         return obs_dict
 
@@ -332,10 +332,12 @@ class DiffusionROSInterface:
 
     def main(self):
         print("Warming up policy inference")
-        obs = self.get_obs()
+        for i in range(self.policy.n_obs_steps):
+            obs = self.get_obs()
         
         with torch.no_grad():
             self.policy.reset()
+            print(obs['usb_cam_left'].shape)
             obs_dict_np = get_real_obs_dict(env_obs=obs, shape_meta=self.cfg.task.shape_meta)
             
             obs_dict = dict_apply(obs_dict_np, lambda x: torch.from_numpy(x).unsqueeze(0).to(self.device))
@@ -368,12 +370,15 @@ class DiffusionROSInterface:
 
                 # get obs
                 obs = self.get_obs()
+                if len(obs['timestamp']) < self.policy.n_obs_steps:
+                    continue
                 obs_timestamps = obs["timestamp"]
                 print(f"Obs latency {time.time() - obs_timestamps[-1]}")
                 with torch.no_grad():
                     self.policy.reset()
                     obs_dict_np = get_real_obs_dict(env_obs=obs, shape_meta=self.cfg.task.shape_meta)
                     obs_dict = dict_apply(obs_dict_np, lambda x: torch.from_numpy(x).unsqueeze(0).to(self.device))
+                    
                     s = time.monotonic()
                     result = self.policy.predict_action(obs_dict)
                     action = result["action"][0].detach().to("cpu").numpy()
