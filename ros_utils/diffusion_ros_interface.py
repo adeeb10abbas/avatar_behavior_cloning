@@ -8,6 +8,7 @@ from geometry_msgs.msg import Point, Quaternion
 from cv_bridge import CvBridge, CvBridgeError
 import message_filters
 import cv2
+from collections import deque
 
 import torch
 import hydra
@@ -49,6 +50,18 @@ class DiffusionROSInterface:
             self.state_obs_left_arm_sub,
             self.state_obs_right_arm_sub,
         ]
+        self.obs_dict = {}
+        self.obs_history = {
+            'usb_cam_left': deque(maxlen=10),
+            'usb_cam_right': deque(maxlen=10),
+            'usb_cam_table': deque(maxlen=10),
+            'rdda_left_obs': deque(maxlen=10),
+            'rdda_right_obs': deque(maxlen=10),
+            'left_arm_pose': deque(maxlen=10),
+            'right_arm_pose': deque(maxlen=10),
+            'timestamp': deque(maxlen=10),
+        }
+        
         self.ts = message_filters.ApproximateTimeSynchronizer(obs_subs, 10, slop=0.5)
         self.ts.registerCallback(self.obs_callback)
 
@@ -137,20 +150,16 @@ class DiffusionROSInterface:
         assert np_state3.shape == (9,)
         assert np_state4.shape == (9,)
         
-        
-        self.obs_dict = {
-            "usb_cam_left": cv_image1,
-            "usb_cam_right": cv_image2,
-            "usb_cam_table": cv_image3,
-            "rdda_left_obs": np_state1,      # 6D 
-            "rdda_right_obs": np_state2,     # 6D
-            "left_arm_pose": np_state3,          # 9D  9 x 2
-            "right_arm_pose": np_state4,         # 9D
-            "timestamp": img_timestamp,
-        }
+        self.obs_dict['usb_cam_left'] = cv_image1
+        self.obs_dict['usb_cam_right'] = cv_image2
+        self.obs_dict['usb_cam_table'] = cv_image3
+        self.obs_dict['rdda_left_obs'] = np_state1
+        self.obs_dict['rdda_right_obs'] = np_state2
+        self.obs_dict['left_arm_pose'] = np_state3
+        self.obs_dict['right_arm_pose'] = np_state4
+        self.obs_dict['timestamp'] = img_timestamp
         
         self.obs_ready = True
-        # import pdb; pdb.set_trace()
 
     def get_obs(self) -> dict:
         """
@@ -160,16 +169,49 @@ class DiffusionROSInterface:
             obs_dict (dict): a dictionary containing the synchronized observations.
         """
         # Since all the synchornization has been done by the filter, we can directly return the obs_dict
-        while (not self.obs_ready):
-            try:
-                rospy.loginfo("Waiting for observations...")
-                time.sleep(0.5)
-            except KeyboardInterrupt:
-                rospy.loginfo("Shutting down...")
-                exit()
+        # while (not self.obs_ready):
+        #     try:
+        #         rospy.loginfo("Waiting for observations...")
+        #         time.sleep(0.5)
+        #     except KeyboardInterrupt:
+        #         rospy.loginfo("Shutting down...")
+        #         exit()
             
+        t = time.monotonic()
         obs_dict = copy.deepcopy(self.obs_dict)
-    
+        print(f"Get obs elapsed: {time.monotonic() - t} seconds")
+        
+        cv_image1 = np.random.rand(480, 640 ,3)
+        cv_image2 = np.random.rand(480, 640 ,3)
+        cv_image3 = np.random.rand(480, 640, 3)
+        np_state1 = np.random.rand(6)
+        np_state2 = np.random.rand(6)
+        np_state3 = np.random.rand(9)
+        np_state4 = np.random.rand(9)
+        img_timestamp = time.time()
+        
+        ## Simulate 2 steps of history
+        for i in range(2):
+            self.obs_history['usb_cam_left'].append(cv_image1)
+            self.obs_history['usb_cam_right'].append(cv_image2)
+            self.obs_history['usb_cam_table'].append(cv_image3)
+            self.obs_history['rdda_left_obs'].append(np_state1)
+            self.obs_history['rdda_right_obs'].append(np_state2)
+            self.obs_history['left_arm_pose'].append(np_state3)
+            self.obs_history['right_arm_pose'].append(np_state4)
+            self.obs_history['timestamp'].append(img_timestamp)
+        
+        obs_dict = dict_apply(self.obs_history, lambda x: np.array(x))
+        # print(obs_dict['usb_cam_left'].shape)
+        # print(obs_dict['left_arm_pose'].shape)
+        
+        # Pop the pulled observations
+        for key, item in self.obs_history.items():
+            self.obs_history[key].popleft()
+            self.obs_history[key].popleft()
+        
+        rospy.loginfo("Using fake data for now...")
+        
         return obs_dict
 
     def interpolate_action(self, action_low_freq:np.ndarray, target_freq: int) -> np.ndarray:
@@ -177,15 +219,35 @@ class DiffusionROSInterface:
         Interpolate the low frequency actions to match the frequency of the robot control
         """
         print("Input low frequency action shape: ", action_low_freq.shape)
+        if action_low_freq.shape[0] < 2:
+            print("Action length less than 2, no need to interpolate")
+            return action_low_freq
+        
         scale = target_freq // self.frequency
 
         # Linear interpolation
         interpolated_action = np.zeros(((len(action_low_freq)-1) * scale + 1, action_low_freq.shape[-1]))
-        for i in range(len(action_low_freq) - 2):
+        for i in range(len(action_low_freq) - 1):
             interpolated_action[i:i+scale,:] = np.linspace(action_low_freq[i], action_low_freq[i+1], scale+1)[:-1]
         
-        assert interpolated_action[0] == action_low_freq[0]
-        assert interpolated_action[-1] == action_low_freq[-1]
+        interpolated_action[-1] = action_low_freq[-1]
+        # import pdb; pdb.set_trace()
+        print("Interpolated action shape: ", interpolated_action.shape)
+        print("action_low_freq shape: ", action_low_freq.shape)
+        
+        if np.any(interpolated_action[0] != action_low_freq[0]):
+            print("First element not equal")
+            print(interpolated_action)
+            print(action_low_freq)
+            exit()
+        
+        if np.any(interpolated_action[-1] != action_low_freq[-1]):
+            print("Last element not equal")
+            print(interpolated_action)
+            print(action_low_freq)
+            exit()
+        assert np.all(interpolated_action[0] == action_low_freq[0])
+        assert np.all(interpolated_action[-1] == action_low_freq[-1])
         print("Interpolated action shape: ", interpolated_action.shape)
         
         return interpolated_action
@@ -203,12 +265,12 @@ class DiffusionROSInterface:
             packet = RDDAPacket()
             packet.wave = [action[0], action[1], action[2]]
             packet.pos_d = [action[3], action[4], action[5]]
-            packet.timestamp = rospy.get_rostime()
+            packet.header.stamp = rospy.get_rostime()
 
             return packet
 
-        def create_PTIPacket(packet, action):
-            assert len(action) == 7
+        def create_PTIPacket(action):
+            assert len(action) == 9
             packet = PTIPacket()
             packet.position.x = action[0]
             packet.position.y = action[1]
@@ -222,7 +284,7 @@ class DiffusionROSInterface:
             packet.quat.y = quat[2]
             packet.quat.z = quat[3]
 
-            packet.timestamp = rospy.get_rostime()
+            packet.header.stamp = rospy.get_rostime()
 
             return packet
 
@@ -279,13 +341,11 @@ class DiffusionROSInterface:
             # import pdb; pdb.set_trace()
             result = self.policy.predict_action(obs_dict)
             action = result["action"][0].detach().to("cpu").numpy()
-            assert action.shape[-1] == 2
+            assert action.shape[-1] == 30
             del result
 
         print("Ready!")
-        print(action)
         # Feed the observation into the model
-        exit()
         try:
             # Don't know if we really need this (TODO)
             self.policy.reset()
