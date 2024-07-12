@@ -10,6 +10,8 @@ import message_filters
 import cv2
 from collections import deque
 
+from multiprocessing import Process, Manager
+
 import torch
 import hydra
 import numpy as np
@@ -27,12 +29,10 @@ from diffusion_policy.common.pytorch_util import dict_apply
 from diffusion_policy.common.precise_sleep import precise_wait
 from diffusion_policy.model.common.rotation_transformer import RotationTransformer
 
-class DiffusionROSInterface:
-    def __init__(self, input, fake_data=True):
-        self.left_gripper_master_pub = rospy.Publisher("/rdda_l_master_output_", RDDAPacket, queue_size=10)
-        self.right_gripper_master_pub = rospy.Publisher("/rdda_right_master_output_", RDDAPacket, queue_size=10)
-        self.left_smarty_arm_pub = rospy.Publisher("/left_smarty_arm_output_", PTIPacket, queue_size=10)
-        self.right_smarty_arm_pub = rospy.Publisher("/right_smarty_arm_output_", PTIPacket, queue_size=10)
+class SubscriberNode:
+    def __init__(self, shared_obs_dict):
+        rospy.init_node('observation_subscriber_node')
+
         self.images_obs_sub1 = message_filters.Subscriber("/usb_cam_left/image_raw", Image)
         self.images_obs_sub2 = message_filters.Subscriber("/usb_cam_right/image_raw", Image)
         self.images_obs_sub3 = message_filters.Subscriber("/usb_cam_table/image_raw", Image)
@@ -41,6 +41,7 @@ class DiffusionROSInterface:
         self.state_obs_left_arm_sub = message_filters.Subscriber("/pti_interface_left/pti_output", PTIPacket)
         self.state_obs_right_arm_sub = message_filters.Subscriber("/pti_interface_right/pti_output", PTIPacket)
 
+        self.obs_dict = shared_obs_dict
         obs_subs = [
             self.images_obs_sub1,
             self.images_obs_sub2,
@@ -50,60 +51,12 @@ class DiffusionROSInterface:
             self.state_obs_left_arm_sub,
             self.state_obs_right_arm_sub,
         ]
-        self.obs_dict = {}
-        self.obs_history = {
-            'usb_cam_left': deque(maxlen=10),
-            'usb_cam_right': deque(maxlen=10),
-            'usb_cam_table': deque(maxlen=10),
-            'rdda_left_obs': deque(maxlen=10),
-            'rdda_right_obs': deque(maxlen=10),
-            'left_arm_pose': deque(maxlen=10),
-            'right_arm_pose': deque(maxlen=10),
-            'timestamp': deque(maxlen=10),
-        }
-        self.fake_data = fake_data
-        
         self.ts = message_filters.ApproximateTimeSynchronizer(obs_subs, 10, slop=0.5)
-        self.ts.registerCallback(self.obs_callback)
-
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # load checkpoint
-        ckpt_path = input
-        payload = torch.load(open(ckpt_path, "rb"), pickle_module=dill)
-        self.cfg = payload["cfg"]
-        print(self.cfg)
-        cls = hydra.utils.get_class(self.cfg._target_)
-        workspace = cls(self.cfg)
-        workspace: BaseWorkspace
-        workspace.load_payload(payload, exclude_keys=None, include_keys=None)
-
-        # hacks for method-specific setup.
-        self.frequency = 10
-        self.dt = 1.0 / self.frequency
-        self.steps_per_inference = self.cfg['n_action_steps']
-
-        if "diffusion" in self.cfg.name:
-            # diffusion model
-            self.policy: BaseImagePolicy
-            self.policy = workspace.model
-            if self.cfg.training.use_ema:
-                self.policy = workspace.ema_model
-
-            device = torch.device("cuda")
-            self.policy.eval().to(device)
-            rospy.loginfo("Policy evaluated")
-
-            # set inference params
-            # self.policy.num_inference_steps = 100  # DDIM inference iterations
-            # (TODO: Double check this)
-            self.policy.n_action_steps = self.policy.horizon - self.policy.n_obs_steps + 1
-        else:
-            raise NotImplementedError(f"Unknown model type: {self.cfg.name}")
+        self.ts.registerCallback(self.callback)
         
-        rospy.loginfo("Model Loaded!")
-        self.obs_ready = False
+        self.run()
 
-    def obs_callback(self, img1, img2, img3, state1, state2, state3, state4):
+    def callback(self, img1, img2, img3, state1, state2, state3, state4):
         """
         Args:
             img1 (Image): left camera image
@@ -160,7 +113,67 @@ class DiffusionROSInterface:
         self.obs_dict['right_arm_pose'] = np_state4
         self.obs_dict['timestamp'] = img_timestamp
         
-        self.obs_ready = True
+        # rospy.loginfo("Observations synchronized!")
+    
+    def run(self):
+        rospy.spin()
+
+class DiffusionROSInterface:
+    def __init__(self, input, shared_obs_dict, fake_data=False):
+        rospy.init_node("diffusion_ros_interface")
+        self.left_gripper_master_pub = rospy.Publisher("/rdda_l_master_output_", RDDAPacket, queue_size=10)
+        self.right_gripper_master_pub = rospy.Publisher("/rdda_right_master_output_", RDDAPacket, queue_size=10)
+        self.left_smarty_arm_pub = rospy.Publisher("/left_smarty_arm_output_", PTIPacket, queue_size=10)
+        self.right_smarty_arm_pub = rospy.Publisher("/right_smarty_arm_output_", PTIPacket, queue_size=10)
+        self.obs_dict = shared_obs_dict
+        self.obs_history = {
+            'usb_cam_left': deque(maxlen=10),
+            'usb_cam_right': deque(maxlen=10),
+            'usb_cam_table': deque(maxlen=10),
+            'rdda_left_obs': deque(maxlen=10),
+            'rdda_right_obs': deque(maxlen=10),
+            'left_arm_pose': deque(maxlen=10),
+            'right_arm_pose': deque(maxlen=10),
+            'timestamp': deque(maxlen=10),
+        }
+        self.fake_data = fake_data
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # load checkpoint
+        ckpt_path = input
+        payload = torch.load(open(ckpt_path, "rb"), pickle_module=dill)
+        self.cfg = payload["cfg"]
+        print(self.cfg)
+        cls = hydra.utils.get_class(self.cfg._target_)
+        workspace = cls(self.cfg)
+        workspace: BaseWorkspace
+        workspace.load_payload(payload, exclude_keys=None, include_keys=None)
+
+        # hacks for method-specific setup.
+        self.frequency = 10
+        self.dt = 1.0 / self.frequency
+        self.steps_per_inference = self.cfg['n_action_steps']
+
+        if "diffusion" in self.cfg.name:
+            # diffusion model
+            self.policy: BaseImagePolicy
+            self.policy = workspace.model
+            if self.cfg.training.use_ema:
+                self.policy = workspace.ema_model
+
+            device = torch.device("cuda")
+            self.policy.eval().to(device)
+            rospy.loginfo("Policy evaluated")
+
+            # set inference params
+            # self.policy.num_inference_steps = 100  # DDIM inference iterations
+            self.policy.n_action_steps = self.policy.horizon - self.policy.n_obs_steps + 1
+        else:
+            raise NotImplementedError(f"Unknown model type: {self.cfg.name}")
+        
+        rospy.loginfo("Model Loaded!")
+        self.obs_ready = False
+        self.main()
 
     def get_obs(self) -> dict:
         """
@@ -170,8 +183,12 @@ class DiffusionROSInterface:
             obs_dict (dict): a dictionary containing the synchronized observations.
         """
         # Since all the synchornization has been done by the filter, we can directly return the obs_dict
-        while (not self.obs_ready and not self.fake_data):
+        t = time.monotonic()
+        while (len(self.obs_dict) == 0 and not self.fake_data):
             try:
+                if time.monotonic() - t > 2:
+                    rospy.logerr("Timeout, no observations received")
+                    exit()
                 rospy.loginfo("Waiting for observations...")
                 time.sleep(0.5)
             except KeyboardInterrupt:
@@ -323,6 +340,7 @@ class DiffusionROSInterface:
         """
         Parse the tensor action to the corresponding actions for the left gripper, right gripper, left arm and right arm
         """
+        # TODO: Double check the order
         assert action.shape[-1] == 30
         left_gripper_action = action[:, 0:6]  # N x 6
         right_gripper_action = action[:, 6:12]  # N x 6
@@ -420,7 +438,14 @@ class DiffusionROSInterface:
 
 
 if __name__ == "__main__":
-    rospy.init_node("diffusion_ros_interface")
-    diffusion_ros_interface = DiffusionROSInterface(input="../weights/epoch=0100-train_loss=0.012-001.ckpt")
-    diffusion_ros_interface.main()
-    rospy.spin()
+    manager = Manager()
+    shared_obs_dict = manager.dict()
+
+    subscriber_process = Process(target=SubscriberNode, args=(shared_obs_dict,))
+    subscriber_process.start()
+    
+    diffusion_process = Process(target=DiffusionROSInterface, args=("../weights/epoch=0100-train_loss=0.012-001.ckpt", shared_obs_dict,))
+    diffusion_process.start()
+    
+    subscriber_process.join()
+    diffusion_process.join()
