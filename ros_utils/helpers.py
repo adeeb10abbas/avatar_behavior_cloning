@@ -32,7 +32,7 @@ def panda_arm_pose_to_tensor(pose_msg, t):
     position_tensor = torch.tensor([pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z], dtype=torch.float32)
     
     # Quaternion tensor
-    quat_tensor = torch.tensor([pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z, pose_msg.pose.orientation.w], dtype=torch.float32)
+    quat_tensor = torch.tensor([pose_msg.pose.orientation.w, pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z], dtype=torch.float32)
     
     tf = RotationTransformer(from_rep='quaternion', to_rep='rotation_6d')
     rot6d_tensor = torch.tensor(tf.forward(quat_tensor), dtype=torch.float32)
@@ -55,7 +55,7 @@ def operator_arm_pose_to_tensor(pose_msg, side, t):
     #                              pose_msg.twist.angular.x, pose_msg.twist.angular.y, pose_msg.twist.angular.z], dtype=torch.float32)
     
     # Quaternion tensor
-    quat_tensor = torch.tensor([pose_msg.quat.x, pose_msg.quat.y, pose_msg.quat.z, pose_msg.quat.w], dtype=torch.float32)
+    quat_tensor = torch.tensor([pose_msg.quat.w, pose_msg.quat.x, pose_msg.quat.y, pose_msg.quat.z], dtype=torch.float32)
     
     # Convert quaternion to rotation vector (axis-angle representation)
     # rotation = Rotation.from_quat(quat_tensor.numpy()) 
