@@ -342,8 +342,8 @@ class DiffusionROSInterface:
         """
         # TODO: Double check the order
         assert action.shape[-1] == 30
-        left_gripper_action = action[:, 0:6]  # N x 6
-        right_gripper_action = action[:, 6:12]  # N x 6
+        right_gripper_action = action[:, 0:6]  # N x 6
+        left_gripper_action = action[:, 6:12]  # N x 6
         left_arm_action = action[:, 12:21]  # N x 9
         right_arm_action = action[:, 21:30]  # N x 9
         return left_gripper_action, right_gripper_action, left_arm_action, right_arm_action
