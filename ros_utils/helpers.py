@@ -92,14 +92,13 @@ def rdda_packet_to_tensor(rdda_packet: RDDAPacket, mode: str, t: Clock):
 
     if mode == "teacher_aware":
         # We don't feed haptics to the model, it's only supposed to be implicitly learned
-        obs_from_state = torch.cat([pos_tensor, vel_tensor], dim=0)
-        action_stuff = torch.cat([pos_desired_tensor, wave_tensor], dim=0)
+        obs_from_state = torch.cat([pos_desired_tensor, vel_tensor], dim=0)
+        action_stuff = torch.cat([pos_tensor, wave_tensor], dim=0)
     elif mode == "policy_aware": # TODO: check the obs and action tensors of the gripper/glove here
-        obs_from_state = torch.cat([pos_tensor, vel_tensor, tau_tensor, pos_desired_tensor, pressure_tensor], dim=0)
-        action_stuff = torch.cat([wave_tensor, pos_desired_tensor], dim=0)
+        obs_from_state = torch.cat([pos_desired_tensor, vel_tensor, tau_tensor, pressure_tensor], dim=0)
+        action_stuff = torch.cat([pos_tensor, wave_tensor], dim=0)
 
     # assert obs_from_state is not None and action_stuff is not None
-
     # Ensure the tensors are the same shape before stacking
     print(f"obs_from_state shape: {obs_from_state.shape}")
     print(f"action_stuff shape: {action_stuff.shape}")
