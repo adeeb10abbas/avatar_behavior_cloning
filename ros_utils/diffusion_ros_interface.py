@@ -113,7 +113,7 @@ class SubscriberNode:
         self.obs_dict['right_arm_pose'] = np_state4
         self.obs_dict['timestamp'] = img_timestamp
         
-        # rospy.loginfo("Observations synchronized!")
+        rospy.loginfo("Observations synchronized!")
     
     def run(self):
         rospy.spin()
@@ -121,8 +121,8 @@ class SubscriberNode:
 class DiffusionROSInterface:
     def __init__(self, input, shared_obs_dict, fake_data=False):
         rospy.init_node("diffusion_ros_interface")
-        self.left_gripper_master_pub = rospy.Publisher("/rdda_l_master_output_", RDDAPacket, queue_size=10)
-        self.right_gripper_master_pub = rospy.Publisher("/rdda_right_master_output_", RDDAPacket, queue_size=10)
+        self.left_gripper_master_pub = rospy.Publisher("/rdda_l_master_output", RDDAPacket, queue_size=10)
+        self.right_gripper_master_pub = rospy.Publisher("/rdda_right_master_output", RDDAPacket, queue_size=10)
         self.left_smarty_arm_pub = rospy.Publisher("/left_smarty_arm_output_", PTIPacket, queue_size=10)
         self.right_smarty_arm_pub = rospy.Publisher("/right_smarty_arm_output_", PTIPacket, queue_size=10)
         self.obs_dict = shared_obs_dict
@@ -166,8 +166,11 @@ class DiffusionROSInterface:
             rospy.loginfo("Policy evaluated")
 
             # set inference params
-            # self.policy.num_inference_steps = 100  # DDIM inference iterations
+            self.policy.num_inference_steps = 16  # DDIM inference iterations
             self.policy.n_action_steps = self.policy.horizon - self.policy.n_obs_steps + 1
+            # self.policy.n_action_steps = 1
+            # self.policy.horizon - self.policy.n_obs_steps + 1
+            # self.policy.n_action_s = self.cfg
         else:
             raise NotImplementedError(f"Unknown model type: {self.cfg.name}")
         
@@ -286,6 +289,8 @@ class DiffusionROSInterface:
             packet.wave = [action[0], action[1], action[2]]
             packet.pos_d = [action[3], action[4], action[5]]
             packet.header.stamp = rospy.get_rostime()
+            # assert(len(packet.wave) == 3)
+            # assert(len(packet.pos_d) == 3)
 
             return packet
 
@@ -308,9 +313,11 @@ class DiffusionROSInterface:
 
             return packet
 
-        action_publish_rate = 20
+        action_publish_rate = 100
                
+        print("shape of left gripper action: ", action_tuple[0].shape)
         left_gripper_action = self.interpolate_action(action_tuple[0], action_publish_rate)
+        print("interpolated len of left gripper action: ", len(left_gripper_action))
         right_gripper_action = self.interpolate_action(action_tuple[1], action_publish_rate)
         left_arm_action = self.interpolate_action(action_tuple[2], action_publish_rate)
         right_arm_action = self.interpolate_action(action_tuple[3], action_publish_rate)
@@ -342,10 +349,12 @@ class DiffusionROSInterface:
         """
         # TODO: Double check the order
         assert action.shape[-1] == 30
+        
         right_gripper_action = action[:, 0:6]  # N x 6
-        left_gripper_action = action[:, 6:12]  # N x 6
-        left_arm_action = action[:, 12:21]  # N x 9
-        right_arm_action = action[:, 21:30]  # N x 9
+        right_arm_action = action[:, 6:15]  # N x 9
+        
+        left_gripper_action = action[:, 15:21]  # N x 6
+        left_arm_action = action[:, 21:]  # N x 9
         return left_gripper_action, right_gripper_action, left_arm_action, right_arm_action
 
     def main(self):
@@ -444,7 +453,7 @@ if __name__ == "__main__":
     subscriber_process = Process(target=SubscriberNode, args=(shared_obs_dict,))
     subscriber_process.start()
     
-    diffusion_process = Process(target=DiffusionROSInterface, args=("../weights/epoch=0100-train_loss=0.012-001.ckpt", shared_obs_dict,))
+    diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/latest.ckpt", shared_obs_dict, False))
     diffusion_process.start()
     
     subscriber_process.join()

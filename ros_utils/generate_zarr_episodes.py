@@ -40,10 +40,11 @@ def main(input_pkl_file_path):
         left_operator_pose = data_to_save["left_operator_pose"]
 
         # Stack the arrays along the 0th dimension
-        data_to_save["action"] = np.concatenate([rdda_right_act,
-                                            right_operator_pose,
-                                            rdda_left_act,
-                                            left_operator_pose], axis=1)
+        data_to_save["action"] = np.concatenate([rdda_right_act, # 6
+                                            right_operator_pose, # 9
+                                            rdda_left_act, # 6
+                                            left_operator_pose # 9
+                                            ], axis=1)
 
         del data
         keys_to_delete = ["rdda_right_act", "right_operator_pose", "rdda_left_act", "left_operator_pose"]

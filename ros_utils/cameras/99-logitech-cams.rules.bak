@@ -1,0 +1,3 @@
+ACTION=="add", KERNEL=="video*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="08e5", ATTRS{serial}=="976E3A1F", ENV{ID_V4L_CAPABILITIES}==":capture:", GROUP="video", SYMLINK+="table_cam"
+ACTION=="add", KERNEL=="video*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="08e5", ATTRS{serial}=="58CD0A1F", ENV{ID_V4L_CAPABILITIES}==":capture:", GROUP="video", SYMLINK+="right_cam"
+ACTION=="add", KERNEL=="video*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="08e5", ATTRS{serial}=="94CD0A1F", ENV{ID_V4L_CAPABILITIES}==":capture:", GROUP="video", SYMLINK+="left_cam"
