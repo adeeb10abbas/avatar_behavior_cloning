@@ -68,9 +68,8 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
                 if "throttled" in topic:
                     if mode == "teacher_aware": 
                         # Teacher Aware
-                        obs_tensor = tensor[:6] # 6
-                        action_tensor = tensor[6:] # 6
-
+                        obs_tensor = tensor[:9] # 9
+                        action_tensor = tensor[9:] # 6
                     else: ## Policy Aware
                         obs_tensor = tensor[:15] # 15
                         action_tensor = tensor[15:] # 6
