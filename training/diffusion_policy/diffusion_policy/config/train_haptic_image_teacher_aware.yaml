@@ -35,10 +35,10 @@ shape_meta: &shape_meta
       shape: [9] # right robot EE pose
       type: low_dim
     rdda_right_obs:
-      shape: [9] # pos_tensor, vel_tensor
+      shape: [9] # pos_tensor, pos_desired_tensor, vel_tensor
       type: low_dim
     rdda_left_obs:
-      shape: [9] # pos_tensor, vel_tensor
+      shape: [9] # pos_tensor, pos_desired_tensor, vel_tensor
       type: low_dim
   action:
     shape: [30]
