@@ -71,29 +71,18 @@ device = torch.device('cuda')
 policy.eval().to(device)
 
 # set inference params
-policy.num_inference_steps = 16 # DDIM inference iterations
+policy.num_inference_steps = 100 # DDIM inference iterations
 # policy.n_action_steps = policy.horizon - policy.n_obs_steps + 1
-policy.n_action_steps = 1
+policy.n_action_steps = 8
 
-# obs_ = load_pkl_obs(pkl_path)
-# inferred_actions = []
-# for i in range(50, 2):
-#     obs_dict_np = get_real_obs_dict(
-#         env_obs=obs_, shape_meta=cfg.task.shape_meta)
-#     obs_dict = dict_apply(obs_dict_np, 
-#         lambda x: torch.from_numpy(x).unsqueeze(0).to(device))
-#     s = time.time()
-#     result = policy.predict_action(obs_dict)
-#     # this action starts from the first obs step
-#     action = result['action'][0].detach().to('cpu').numpy()
-#     print('Inference latency:', time.time() - s)
+
 #     inferred_actions.append(action)
 def analyze_and_plot_actions(pkl_path, ckpt_path):
     obs_ = load_pkl_obs(pkl_path)
     ground_truth_actions = obs_['action']
 
     inferred_actions = []
-    for i in range(len(ground_truth_actions)//45):
+    for i in range(len(ground_truth_actions)):
         obs_dict_np = get_real_obs_dict(env_obs=obs_, shape_meta=cfg.task.shape_meta)
         obs_dict = dict_apply(obs_dict_np, lambda x: torch.from_numpy(x).unsqueeze(0).to(device))
         result = policy.predict_action(obs_dict)
@@ -145,7 +134,7 @@ left_arm_ground_truth = []
 right_hand_ground_truth = []
 left_hand_ground_truth = []
 import pdb; pdb.set_trace()
-inferred_actions = inferred_actions[0]
+# inferred_actions = inferred_actions[0]
 for i in range(len(inferred_actions)):
     left_arm_inferred.append(inferred_actions[i].squeeze()[:6][0])
     left_hand_inferred.append(inferred_actions[i].squeeze()[6:15][0])
