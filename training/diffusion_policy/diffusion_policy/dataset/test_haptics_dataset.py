@@ -42,8 +42,8 @@ class TestAvatarHapticsImageDataset(unittest.TestCase):
         
         shape_meta = {
             "obs": {
-                "usb_cam_right": {"shape": [3, 640, 480], "type": "rgb"},
-                "usb_cam_left": {"shape": [3, 640, 480], "type": "rgb"},
+                # "usb_cam_right": {"shape": [3, 640, 480], "type": "rgb"},
+                # "usb_cam_left": {"shape": [3, 640, 480], "type": "rgb"},
                 "usb_cam_table": {"shape": [3, 640, 480], "type": "rgb"},
                 "left_arm_pose": {"shape": [7], "type": "low_dim"},
                 "right_arm_pose": {"shape": [7], "type": "low_dim"},
@@ -54,7 +54,7 @@ class TestAvatarHapticsImageDataset(unittest.TestCase):
         }
 
         dataset = AvatarHapticsImageDataset(
-            dataset_path="/home/ali/shared_volume/bottle_pick/teacher_aware_pkl/_replay_buffer.zarr",
+            dataset_path="/home/ali/shared_volume/_replay_buffer.zarr",
             shape_meta=shape_meta,
             horizon=8,
             n_obs_steps=2,

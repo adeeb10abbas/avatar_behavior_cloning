@@ -73,31 +73,20 @@ def operator_arm_pose_to_tensor(pose_msg, side, t):
 
 def rdda_packet_to_tensor(rdda_packet: RDDAPacket, mode: str, t: Clock):
     pos_tensor = torch.tensor(rdda_packet.pos, dtype=torch.float32)
-    pos_desired_tensor = torch.tensor(rdda_packet.pos_d, dtype=torch.float32)
-    vel_tensor = torch.tensor(rdda_packet.vel, dtype=torch.float32)
     tau_tensor = torch.tensor(rdda_packet.tau, dtype=torch.float32)
     wave_tensor = torch.tensor(rdda_packet.wave, dtype=torch.float32)
     pressure_tensor = torch.tensor(rdda_packet.pressure, dtype=torch.float32)
     
-    # # Debugging prints to check tensor shapes
-    # print(f"pos_tensor shape: {pos_tensor.shape}")
-    # print(f"pos_desired_tensor shape: {pos_desired_tensor.shape}")
-    # print(f"vel_tensor shape: {vel_tensor.shape}")
-    # print(f"tau_tensor shape: {tau_tensor.shape}")
-    # print(f"wave_tensor shape: {wave_tensor.shape}")
-    # print(f"pressure_tensor shape: {pressure_tensor.shape}")
-
     obs_from_state = None
     action_stuff = None
 
     if mode == "teacher_aware":
         # We don't feed haptics to the model, it's only supposed to be implicitly learned
-        obs_from_state = torch.cat([pos_tensor, pos_desired_tensor, vel_tensor], dim=0) # 9 DIM
-        action_stuff = torch.cat([pos_tensor, wave_tensor], dim=0) # 6 DIM
+        obs_from_state = torch.cat([pos_tensor], dim=0) # 9 DIM
+        action_stuff = torch.cat([pos_tensor], dim=0) # 6 DIM
 
     elif mode == "policy_aware": # TODO: check the obs and action tensors of the gripper/glove here
-        obs_from_state = torch.cat([pos_tensor, pos_desired_tensor, vel_tensor, 
-                                    tau_tensor, pressure_tensor], dim=0) # 15 DIM
+        obs_from_state = torch.cat([pos_tensor, pressure_tensor], dim=0) # 15 DIM
         action_stuff = torch.cat([pos_tensor, wave_tensor], dim=0) # 6 DIM
 
     # assert obs_from_state is not None and action_stuff is not None

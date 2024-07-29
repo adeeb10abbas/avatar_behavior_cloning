@@ -35,10 +35,10 @@ shape_meta: &shape_meta
       shape: [9] # right robot EE pose
       type: low_dim
     rdda_right_obs:
-      shape: [9] # pos_tensor, pos_desired_tensor, vel_tensor
+      shape: [9] # pos_tensor, vel_tensor
       type: low_dim
     rdda_left_obs:
-      shape: [9] # pos_tensor, pos_desired_tensor, vel_tensor
+      shape: [9] # pos_tensor, vel_tensor
       type: low_dim
   action:
     shape: [30]
@@ -48,7 +48,7 @@ shape_meta: &shape_meta
 task:
   name: haptic_image_teacher_aware
   task_name: bottle_pick
-  dataset_path: /root/teacher_aware_pos_wave_replay_buffer.zarr
+  dataset_path: /home/ali/shared_volume/fake_dataset/_replay_buffer.zarr
   dataset_type: ph
   abs_action: ${abs_action}
   shape_meta: ${shape_meta}
@@ -90,7 +90,7 @@ policy:
     rgb_model:
       _target_: diffusion_policy.model.vision.model_getter.get_resnet
       name: resnet18
-      weights: null
+      weights: IMAGENET1K_V1
     resize_shape: [240, 320]
     crop_shape: [216, 288] # ch, cw 240x320 90%
     random_crop: True
@@ -122,14 +122,14 @@ ema:
   max_value: 0.9999
 
 dataloader:
-  batch_size: 164
+  batch_size: 46
   num_workers: 14
   shuffle: False
   pin_memory: False
   persistent_workers: True
 
 val_dataloader:
-  batch_size: 112
+  batch_size: 36
   num_workers: 14
   shuffle: False
   pin_memory: False
@@ -150,7 +150,7 @@ training:
   # optimization
   lr_scheduler: cosine
   lr_warmup_steps: 500
-  num_epochs: 1000
+  num_epochs: 4000
   gradient_accumulate_every: 1
   # EMA destroys performance when used with BatchNorm
   # replace BatchNorm with GroupNorm.
@@ -158,10 +158,10 @@ training:
   freeze_encoder: False
   # training loop control
   # in epochs
-  rollout_every: 50
-  checkpoint_every: 75
-  val_every: 30
-  sample_every: 5
+  rollout_every: 5
+  checkpoint_every: 50
+  val_every: 1
+  sample_every: 1
   # steps per epoch
   max_train_steps: null
   max_val_steps: null

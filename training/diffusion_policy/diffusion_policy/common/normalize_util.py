@@ -218,6 +218,7 @@ def array_to_stats(arr: np.ndarray):
         'min': np.min(arr, axis=0),
         'max': np.max(arr, axis=0),
         'mean': np.mean(arr, axis=0),
-        'std': np.std(arr, axis=0)
+        'std': np.std(arr, axis=0),
+        'span': np.max(arr, axis=0) - np.min(arr, axis=0)
     }
     return stat

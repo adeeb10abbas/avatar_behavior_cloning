@@ -64,3 +64,5 @@ if __name__=="__main__":
         print("Usage: generate_zarr_episode.py <input_pkl_directory>")
         sys.exit(1)
     main(sys.argv[1])
+    
+    

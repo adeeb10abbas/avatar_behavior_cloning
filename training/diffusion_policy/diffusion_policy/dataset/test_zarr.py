@@ -21,7 +21,7 @@ def list_keys(zarr_path):
     return all_keys
 
 # Example usage
-zarr_path = '//home/ali/shared_volume/processed_bottle_pick_data/finer/teacher_aware_out/_replay_buffer.zarr'
+zarr_path = '/home/ali/shared_volume/_replay_buffer.zarr'
 keys = list_keys(zarr_path)
 for key in keys:
     print(key)
