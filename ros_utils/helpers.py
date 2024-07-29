@@ -82,11 +82,11 @@ def rdda_packet_to_tensor(rdda_packet: RDDAPacket, mode: str, t: Clock):
 
     if mode == "teacher_aware":
         # We don't feed haptics to the model, it's only supposed to be implicitly learned
-        obs_from_state = torch.cat([pos_tensor], dim=0) # 9 DIM
-        action_stuff = torch.cat([pos_tensor], dim=0) # 6 DIM
+        obs_from_state = torch.cat([pos_tensor], dim=0) # 3 DIM
+        action_stuff = torch.cat([pos_tensor], dim=0) # 3 DIM
 
     elif mode == "policy_aware": # TODO: check the obs and action tensors of the gripper/glove here
-        obs_from_state = torch.cat([pos_tensor, pressure_tensor], dim=0) # 15 DIM
+        obs_from_state = torch.cat([pos_tensor, pressure_tensor], dim=0) # 6 DIM
         action_stuff = torch.cat([pos_tensor, wave_tensor], dim=0) # 6 DIM
 
     # assert obs_from_state is not None and action_stuff is not None

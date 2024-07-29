@@ -3,7 +3,7 @@ _target_: diffusion_policy.workspace.train_diffusion_unet_image_workspace.TrainD
 name: train_diffusion_unet_hybrid
 exp_name: diffusion_ddim
 task_name: ${task.name}
-action_dim: 30
+action_dim: 24
 horizon: 16
 n_obs_steps: 2 
 dataset_obs_steps: ${n_obs_steps}
@@ -35,20 +35,20 @@ shape_meta: &shape_meta
       shape: [9] # right robot EE pose
       type: low_dim
     rdda_right_obs:
-      shape: [9] # pos_tensor, vel_tensor
+      shape: [3] # pos_tensor
       type: low_dim
     rdda_left_obs:
-      shape: [9] # pos_tensor, vel_tensor
+      shape: [3] # pos_tensor
       type: low_dim
   action:
-    shape: [30]
-    # addition here - rdda_right_act (6)[wave, pos] + rdda_left_act(6) [wave, pos] + left_operator_ee_pose(9) 
+    shape: [24]
+    # addition here - rdda_right_act (3)[pos] + rdda_left_act(3) [pos] + left_operator_ee_pose(9) 
     # + right_arm_ee_pose(9) 
 
 task:
   name: haptic_image_teacher_aware
   task_name: bottle_pick
-  dataset_path: /home/ali/shared_volume/fake_dataset/_replay_buffer.zarr
+  dataset_path: /home/ali/shared_volume/bottle_pick/teacher_aware/_replay_buffer.zarr
   dataset_type: ph
   abs_action: ${abs_action}
   shape_meta: ${shape_meta}
@@ -122,7 +122,7 @@ ema:
   max_value: 0.9999
 
 dataloader:
-  batch_size: 46
+  batch_size: 56
   num_workers: 14
   shuffle: False
   pin_memory: False
