@@ -42,8 +42,7 @@ shape_meta: &shape_meta
       type: low_dim
   action:
     shape: [24]
-    # addition here - rdda_right_act (3)[pos] + rdda_left_act(3) [pos] + left_operator_ee_pose(9) 
-    # + right_arm_ee_pose(9) 
+    # addition here - rdda_right_act (3)[pos] + right_arm_ee_pose(9) + rdda_left_act(3) [pos] + left_operator_ee_pose(9) 
 
 task:
   name: haptic_image_teacher_aware
