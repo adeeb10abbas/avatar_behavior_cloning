@@ -30,7 +30,7 @@ from diffusion_policy.common.precise_sleep import precise_wait
 from diffusion_policy.model.common.rotation_transformer import RotationTransformer
 
 class SubscriberNode:
-    def __init__(self, shared_obs_dict):
+    def __init__(self, shared_obs_dict, mode="teacher_aware"):
         rospy.init_node('observation_subscriber_node')
 
         self.images_obs_sub1 = message_filters.Subscriber("/usb_cam_left/image_raw", Image)
@@ -51,8 +51,9 @@ class SubscriberNode:
             self.state_obs_left_arm_sub,
             self.state_obs_right_arm_sub,
         ]
-        self.ts = message_filters.ApproximateTimeSynchronizer(obs_subs, 10, slop=0.5)
+        self.ts = message_filters.ApproximateTimeSynchronizer(obs_subs, 1, slop=0.5)
         self.ts.registerCallback(self.callback)
+        self.mode = mode
         
         self.run()
 
@@ -86,10 +87,17 @@ class SubscriberNode:
         ) / 4
         # rospy.loginfo(f"Image average timestamp: {img_timestamp}, State average timestamp: {state_timestamp}")
 
-        np_state1 = np.concatenate((state1.wave, state1.pos_d))
-        np_state2 = np.concatenate((state2.wave, state2.pos_d))
-        assert np_state1.shape == (6,)
-        assert np_state2.shape == (6,)
+        if self.mode == "teacher_aware":
+            np_state1 = np.array(state1.pos)
+            np_state2 = np.array(state2.pos)
+            assert np_state1.shape == (3,)
+            assert np_state2.shape == (3,)
+            
+        elif self.mode == "policy_aware":
+            pass
+        
+        else:
+            raise ValueError("Invalid mode, please choose from 'teacher_aware' or 'policy_aware'")
         
         # To use pytorch3d's conversion function, we need real part first quaternion
         np_position3 = np.array([state3.position.x, state3.position.y, state3.position.z])
@@ -111,20 +119,18 @@ class SubscriberNode:
         self.obs_dict['rdda_right_obs'] = np_state2
         self.obs_dict['left_arm_pose'] = np_state3
         self.obs_dict['right_arm_pose'] = np_state4
-        self.obs_dict['timestamp'] = img_timestamp
-        
-        rospy.loginfo("Observations synchronized!")
-    
+        self.obs_dict['timestamp'] = time.time() #img_timestamp
+            
     def run(self):
         rospy.spin()
 
 class DiffusionROSInterface:
     def __init__(self, input, shared_obs_dict, fake_data=False):
         rospy.init_node("diffusion_ros_interface")
-        self.left_gripper_master_pub = rospy.Publisher("/rdda_l_master_output", RDDAPacket, queue_size=10)
-        self.right_gripper_master_pub = rospy.Publisher("/rdda_right_master_output", RDDAPacket, queue_size=10)
-        self.left_smarty_arm_pub = rospy.Publisher("/left_smarty_arm_output_", PTIPacket, queue_size=10)
-        self.right_smarty_arm_pub = rospy.Publisher("/right_smarty_arm_output_", PTIPacket, queue_size=10)
+        self.left_gripper_master_pub = rospy.Publisher("/diff_rdda_l_master_output", RDDAPacket, queue_size=10)
+        self.right_gripper_master_pub = rospy.Publisher("/diff_rdda_right_master_output", RDDAPacket, queue_size=10)
+        self.left_smarty_arm_pub = rospy.Publisher("/diff_left_smarty_arm_output", PTIPacket, queue_size=10)
+        self.right_smarty_arm_pub = rospy.Publisher("/diff_right_smarty_arm_output", PTIPacket, queue_size=10)
         self.obs_dict = shared_obs_dict
         self.obs_history = {
             'usb_cam_left': deque(maxlen=10),
@@ -143,7 +149,6 @@ class DiffusionROSInterface:
         ckpt_path = input
         payload = torch.load(open(ckpt_path, "rb"), pickle_module=dill)
         self.cfg = payload["cfg"]
-        print(self.cfg)
         cls = hydra.utils.get_class(self.cfg._target_)
         workspace = cls(self.cfg)
         workspace: BaseWorkspace
@@ -152,7 +157,7 @@ class DiffusionROSInterface:
         # hacks for method-specific setup.
         self.frequency = 10
         self.dt = 1.0 / self.frequency
-        self.steps_per_inference = self.cfg['n_action_steps']
+        self.steps_per_inference = 2
 
         if "diffusion" in self.cfg.name:
             # diffusion model
@@ -163,21 +168,68 @@ class DiffusionROSInterface:
 
             device = torch.device("cuda")
             self.policy.eval().to(device)
-            rospy.loginfo("Policy evaluated")
+            rospy.loginfo("Policy evaluated")      
 
             # set inference params
             self.policy.num_inference_steps = 16  # DDIM inference iterations
-            self.policy.n_action_steps = self.policy.horizon - self.policy.n_obs_steps + 1
+            self.policy.n_action_steps = 8 #self.policy.horizon - self.policy.n_obs_steps + 1
             # self.policy.n_action_steps = 1
             # self.policy.horizon - self.policy.n_obs_steps + 1
             # self.policy.n_action_s = self.cfg
         else:
             raise NotImplementedError(f"Unknown model type: {self.cfg.name}")
         
+        import pickle
+        pkl_file = "/home/ali/Downloads/df_test.pkl"
+        print("Processing pkl file: %s" % pkl_file)
+        with open(pkl_file, "rb") as f:
+            data = pickle.load(f)
+        # Prepare data to be saved in Zarr
+        self.data_to_save = {}
+        for key, tensor_list in data.items():
+            print(key, len(tensor_list))
+            self.data_to_save[key] = torch.stack(tensor_list).numpy()
+        # import pdb; pdb.set_trace()
+        rdda_right_act = self.data_to_save["rdda_right_act"]
+        right_operator_pose = self.data_to_save["right_operator_pose"]
+        rdda_left_act = self.data_to_save["rdda_left_act"]
+        left_operator_pose = self.data_to_save["left_operator_pose"]
+
+        # Stack the arrays along the 0th dimension
+        self.data_to_save["action"] = np.concatenate([rdda_right_act, # 3
+                                            right_operator_pose, # 9
+                                            rdda_left_act, # 3
+                                            left_operator_pose # 9
+                                            ], axis=1)
+        
         rospy.loginfo("Model Loaded!")
         self.obs_ready = False
         self.main()
 
+    def get_obs_from_pickle(self, index) -> dict:
+        """
+        "usb_cam_right",
+        "usb_cam_left",
+        "usb_cam_table",
+        "left_arm_pose",
+        "right_arm_pose",
+        "rdda_right_obs",
+        "rdda_left_obs"
+        "action"
+        """
+        self.obs_history['usb_cam_left'].append(self.data_to_save['usb_cam_left'][index])
+        self.obs_history['usb_cam_right'].append(self.data_to_save['usb_cam_right'][index])
+        self.obs_history['usb_cam_table'].append(self.data_to_save['usb_cam_table'][index])
+        self.obs_history['rdda_left_obs'].append(self.data_to_save['rdda_left_obs'][index])
+        self.obs_history['rdda_right_obs'].append(self.data_to_save['rdda_right_obs'][index])
+        self.obs_history['left_arm_pose'].append(self.data_to_save['left_arm_pose'][index])
+        self.obs_history['right_arm_pose'].append(self.data_to_save['right_arm_pose'][index])
+        self.obs_history['timestamp'].append(time.time())
+
+        obs_dict = dict_apply(self.obs_history, lambda x: np.array(x))
+        
+        return obs_dict
+        
     def get_obs(self) -> dict:
         """
         A similar function as the env.get_obs in the orignial diffusion policy implementation.
@@ -189,7 +241,7 @@ class DiffusionROSInterface:
         t = time.monotonic()
         while (len(self.obs_dict) == 0 and not self.fake_data):
             try:
-                if time.monotonic() - t > 2:
+                if time.monotonic() - t > 10:
                     rospy.logerr("Timeout, no observations received")
                     exit()
                 rospy.loginfo("Waiting for observations...")
@@ -207,7 +259,7 @@ class DiffusionROSInterface:
             self.obs_history['usb_cam_right'].append(obs_dict['usb_cam_right'])
             self.obs_history['usb_cam_table'].append(obs_dict['usb_cam_table'])
             self.obs_history['rdda_left_obs'].append(obs_dict['rdda_left_obs'])
-            self.obs_history['rdda_right_obs'].append(obs_dict["rdda_left_obs"])
+            self.obs_history['rdda_right_obs'].append(obs_dict["rdda_right_obs"])
             self.obs_history['left_arm_pose'].append(obs_dict['left_arm_pose'])
             self.obs_history['right_arm_pose'].append(obs_dict['right_arm_pose'])
             self.obs_history['timestamp'].append(obs_dict['timestamp'])
@@ -215,8 +267,8 @@ class DiffusionROSInterface:
             self.obs_history['usb_cam_left'].append(np.random.rand(480, 640 ,3))
             self.obs_history['usb_cam_right'].append(np.random.rand(480, 640 ,3))
             self.obs_history['usb_cam_table'].append(np.random.rand(480, 640, 3))
-            self.obs_history['rdda_left_obs'].append(np.random.rand(6))
-            self.obs_history['rdda_right_obs'].append(np.random.rand(6))
+            self.obs_history['rdda_left_obs'].append(np.random.rand(3))
+            self.obs_history['rdda_right_obs'].append(np.random.rand(3))
             self.obs_history['left_arm_pose'].append(np.random.rand(9))
             self.obs_history['right_arm_pose'].append(np.random.rand(9))
             self.obs_history['timestamp'].append(time.time())
@@ -277,17 +329,19 @@ class DiffusionROSInterface:
     
     def publish_actions(self, action_tuple: Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]):
         """
-        Publish the actions to the grippers and arms through ROS
+        Publish the actions to the grippers and arms through ROS 
+        Args:
+            action_tuple: [left_gripper_action, right_gripper_action, left_arm_action, right_arm_action]
         """
         assert len(action_tuple[0]) == len(action_tuple[1])
         assert len(action_tuple[1]) == len(action_tuple[2])
         assert len(action_tuple[2]) == len(action_tuple[3])
 
         def create_RDDAPacket(action):
-            assert len(action) == 6
+            assert len(action) == 3
             packet = RDDAPacket()
-            packet.wave = [action[0], action[1], action[2]]
-            packet.pos_d = [action[3], action[4], action[5]]
+            # packet.wave = [action[3], action[4], action[5]]
+            packet.pos = [action[0], action[1], action[2]]
             packet.header.stamp = rospy.get_rostime()
             # assert(len(packet.wave) == 3)
             # assert(len(packet.pos_d) == 3)
@@ -348,20 +402,22 @@ class DiffusionROSInterface:
         Parse the tensor action to the corresponding actions for the left gripper, right gripper, left arm and right arm
         """
         # TODO: Double check the order
-        assert action.shape[-1] == 30
+        assert action.shape[-1] == 24
         
-        right_gripper_action = action[:, 0:6]  # N x 6
-        right_arm_action = action[:, 6:15]  # N x 9
+        right_gripper_action = action[:, 0:3]  # N x 3
+        right_arm_action = action[:, 3:12]  # N x 9
         
-        left_gripper_action = action[:, 15:21]  # N x 6
-        left_arm_action = action[:, 21:]  # N x 9
+        left_gripper_action = action[:, 12:15]  # N x 3
+        left_arm_action = action[:, 15:]  # N x 9
         return left_gripper_action, right_gripper_action, left_arm_action, right_arm_action
 
     def main(self):
         print("Warming up policy inference")
+        #pkl_index = 0
         for i in range(self.policy.n_obs_steps):
+            #obs = self.get_obs_from_pickle(i)
             obs = self.get_obs()
-        
+            #pkl_index += self.policy.n_obs_steps
         with torch.no_grad():
             self.policy.reset()
             print(obs['usb_cam_left'].shape)
@@ -373,7 +429,7 @@ class DiffusionROSInterface:
             # import pdb; pdb.set_trace()
             result = self.policy.predict_action(obs_dict)
             action = result["action"][0].detach().to("cpu").numpy()
-            assert action.shape[-1] == 30
+            assert action.shape[-1] == 24
             del result
 
         print("Ready!")
@@ -396,6 +452,9 @@ class DiffusionROSInterface:
                 t_cycle_end = t_start + (iter_idx + self.steps_per_inference) * self.dt
 
                 # get obs
+                #obs = self.get_obs_from_pickle(pkl_index)
+                # skip the observations during execution
+                #pkl_index += self.policy.n_action_steps - 1
                 obs = self.get_obs()
                 if len(obs['timestamp']) < self.policy.n_obs_steps:
                     continue
@@ -409,6 +468,7 @@ class DiffusionROSInterface:
                     s = time.monotonic()
                     result = self.policy.predict_action(obs_dict)
                     action = result["action"][0].detach().to("cpu").numpy()
+                    print(f"Length of action: {len(action)}")
                     print(f"Model inference time: {time.monotonic() - s} seconds")
 
                     # Timestamps check, if the action timestamp is in the past, skip it
@@ -418,14 +478,13 @@ class DiffusionROSInterface:
                     curr_time = time.time()
                     is_new = action_timestamps > (curr_time + action_exec_latency)
                     if np.sum(is_new) == 0:
-                        # TODO: Not fully understand this part, skip it for now
                         # exceeded time budget, still do something
-                        # this_target_poses = this_target_poses[[-1]]
+                        action_commands = action[[-1]]
                         # # schedule on next available step
                         next_step_idx = int(np.ceil((curr_time - eval_t_start) / self.dt))
                         action_timestamp = eval_t_start + (next_step_idx) * self.dt
                         print("Over budget", action_timestamp - curr_time)
-                        # action_timestamps = np.array([action_timestamp])
+                        action_timestamps = np.array([action_timestamp])
                         continue
                     else:
                         action_commands = action[is_new]
@@ -453,7 +512,7 @@ if __name__ == "__main__":
     subscriber_process = Process(target=SubscriberNode, args=(shared_obs_dict,))
     subscriber_process.start()
     
-    diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/latest.ckpt", shared_obs_dict, False))
+    diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/avatar/avatar_behavior_cloning/weights/teacher_aware_pos_only/latest.ckpt", shared_obs_dict, False))
     diffusion_process.start()
     
     subscriber_process.join()
