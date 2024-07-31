@@ -133,14 +133,14 @@ class DiffusionROSInterface:
         self.right_smarty_arm_pub = rospy.Publisher("/diff_right_smarty_arm_output", PTIPacket, queue_size=10)
         self.obs_dict = shared_obs_dict
         self.obs_history = {
-            'usb_cam_left': deque(maxlen=10),
-            'usb_cam_right': deque(maxlen=10),
-            'usb_cam_table': deque(maxlen=10),
-            'rdda_left_obs': deque(maxlen=10),
-            'rdda_right_obs': deque(maxlen=10),
-            'left_arm_pose': deque(maxlen=10),
-            'right_arm_pose': deque(maxlen=10),
-            'timestamp': deque(maxlen=10),
+            'usb_cam_left': deque(maxlen=2),
+            'usb_cam_right': deque(maxlen=2),
+            'usb_cam_table': deque(maxlen=2),
+            'rdda_left_obs': deque(maxlen=2),
+            'rdda_right_obs': deque(maxlen=2),
+            'left_arm_pose': deque(maxlen=2),
+            'right_arm_pose': deque(maxlen=2),
+            'timestamp': deque(maxlen=2),
         }
         self.fake_data = fake_data
 
@@ -157,7 +157,6 @@ class DiffusionROSInterface:
         # hacks for method-specific setup.
         self.frequency = 10
         self.dt = 1.0 / self.frequency
-        self.steps_per_inference = 2
 
         if "diffusion" in self.cfg.name:
             # diffusion model
@@ -172,15 +171,14 @@ class DiffusionROSInterface:
 
             # set inference params
             self.policy.num_inference_steps = 16  # DDIM inference iterations
-            self.policy.n_action_steps = 8 #self.policy.horizon - self.policy.n_obs_steps + 1
-            # self.policy.n_action_steps = 1
-            # self.policy.horizon - self.policy.n_obs_steps + 1
-            # self.policy.n_action_s = self.cfg
+            self.policy.n_action_steps = 1 #self.policy.horizon - self.policy.n_obs_steps + 1
+            self.steps_per_inference = self.policy.n_action_steps
+
         else:
             raise NotImplementedError(f"Unknown model type: {self.cfg.name}")
         
         import pickle
-        pkl_file = "/home/ali/Downloads/df_test.pkl"
+        pkl_file = "/home/ali/avatar_recordings/bottles_new/synced/pkls/2024-07-20-12-16-10.pkl"
         print("Processing pkl file: %s" % pkl_file)
         with open(pkl_file, "rb") as f:
             data = pickle.load(f)
@@ -201,12 +199,19 @@ class DiffusionROSInterface:
                                             rdda_left_act, # 3
                                             left_operator_pose # 9
                                             ], axis=1)
+
+        self.inferred_actions = {
+            "left_gripper": [],
+            "right_gripper": [],
+            "left_arm": [],
+            "right_arm": []
+        }
         
         rospy.loginfo("Model Loaded!")
         self.obs_ready = False
         self.main()
 
-    def get_obs_from_pickle(self, index) -> dict:
+    def get_obs_from_pickle(self, index, step) -> dict:
         """
         "usb_cam_right",
         "usb_cam_left",
@@ -217,15 +222,15 @@ class DiffusionROSInterface:
         "rdda_left_obs"
         "action"
         """
-        self.obs_history['usb_cam_left'].append(self.data_to_save['usb_cam_left'][index])
-        self.obs_history['usb_cam_right'].append(self.data_to_save['usb_cam_right'][index])
-        self.obs_history['usb_cam_table'].append(self.data_to_save['usb_cam_table'][index])
-        self.obs_history['rdda_left_obs'].append(self.data_to_save['rdda_left_obs'][index])
-        self.obs_history['rdda_right_obs'].append(self.data_to_save['rdda_right_obs'][index])
-        self.obs_history['left_arm_pose'].append(self.data_to_save['left_arm_pose'][index])
-        self.obs_history['right_arm_pose'].append(self.data_to_save['right_arm_pose'][index])
+        self.obs_history['usb_cam_left'].extend(self.data_to_save['usb_cam_left'][index-step: index])
+        self.obs_history['usb_cam_right'].extend(self.data_to_save['usb_cam_right'][index-step: index])
+        self.obs_history['usb_cam_table'].extend(self.data_to_save['usb_cam_table'][index-step: index])
+        self.obs_history['rdda_left_obs'].extend(self.data_to_save['rdda_left_obs'][index-step: index])
+        self.obs_history['rdda_right_obs'].extend(self.data_to_save['rdda_right_obs'][index-step: index])
+        self.obs_history['left_arm_pose'].extend(self.data_to_save['left_arm_pose'][index-step: index])
+        self.obs_history['right_arm_pose'].extend(self.data_to_save['right_arm_pose'][index-step: index])
         self.obs_history['timestamp'].append(time.time())
-
+        print(f"getting from pickle: {index}")
         obs_dict = dict_apply(self.obs_history, lambda x: np.array(x))
         
         return obs_dict
@@ -367,7 +372,7 @@ class DiffusionROSInterface:
 
             return packet
 
-        action_publish_rate = 100
+        action_publish_rate = 10
                
         print("shape of left gripper action: ", action_tuple[0].shape)
         left_gripper_action = self.interpolate_action(action_tuple[0], action_publish_rate)
@@ -397,6 +402,16 @@ class DiffusionROSInterface:
         
         print("All actions published successfully!")
 
+    def save_actions(self, action_tuple: Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]):
+        """
+        Save the actions to a pickle file
+        """
+        self.inferred_actions["left_gripper"].append(action_tuple[0])
+        self.inferred_actions["right_gripper"].append(action_tuple[1])
+        self.inferred_actions["left_arm"].append(action_tuple[2])
+        self.inferred_actions["right_arm"].append(action_tuple[3])
+        print(len(self.inferred_actions["left_gripper"]))
+        
     def parse_tensor_actions(self, action: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Parse the tensor action to the corresponding actions for the left gripper, right gripper, left arm and right arm
@@ -413,11 +428,11 @@ class DiffusionROSInterface:
 
     def main(self):
         print("Warming up policy inference")
-        #pkl_index = 0
+        pkl_index = 0
         for i in range(self.policy.n_obs_steps):
-            #obs = self.get_obs_from_pickle(i)
-            obs = self.get_obs()
-            #pkl_index += self.policy.n_obs_steps
+            obs = self.get_obs_from_pickle(i+1, 1)
+            # obs = self.get_obs()
+            # pkl_index += self.policy.n_obs_steps
         with torch.no_grad():
             self.policy.reset()
             print(obs['usb_cam_left'].shape)
@@ -447,15 +462,20 @@ class DiffusionROSInterface:
             precise_wait(eval_t_start - frame_latency, time_func=time.time)
             print("Started!")
             iter_idx = 0
-            while True:
+            # while True:
+            for i in range(int(100/self.policy.n_action_steps)):
                 # calculate timing
                 t_cycle_end = t_start + (iter_idx + self.steps_per_inference) * self.dt
 
                 # get obs
-                #obs = self.get_obs_from_pickle(pkl_index)
+                if (pkl_index == 0):
+                    obs = self.get_obs_from_pickle(pkl_index + self.policy.n_obs_steps, self.policy.n_obs_steps)
+                    pkl_index += self.policy.n_obs_steps
+                else:
+                    obs = self.get_obs_from_pickle(pkl_index, self.policy.n_action_steps)
                 # skip the observations during execution
-                #pkl_index += self.policy.n_action_steps - 1
-                obs = self.get_obs()
+                pkl_index += self.policy.n_action_steps
+                # obs = self.get_obs()
                 if len(obs['timestamp']) < self.policy.n_obs_steps:
                     continue
                 obs_timestamps = obs["timestamp"]
@@ -476,7 +496,7 @@ class DiffusionROSInterface:
                     action_timestamps = (np.arange(len(action), dtype=np.float64) + action_offset) * self.dt + obs_timestamps[-1]
                     action_exec_latency = 0.01
                     curr_time = time.time()
-                    is_new = action_timestamps > (curr_time + action_exec_latency)
+                    is_new = action_timestamps > 0 #(curr_time + action_exec_latency)
                     if np.sum(is_new) == 0:
                         # exceeded time budget, still do something
                         action_commands = action[[-1]]
@@ -495,11 +515,23 @@ class DiffusionROSInterface:
 
                     # Convert the numpy action to ROS message and publish
                     # TODO: Need to figure out how to publish a trajectory of actions (sync or async?)
-                    self.publish_actions(action_tuple)
+                    # self.publish_actions(action_tuple)
+                    self.save_actions(action_tuple)
 
                     # wait for execution
-                    precise_wait(t_cycle_end - frame_latency)
+                    # precise_wait(t_cycle_end - frame_latency)
                     iter_idx += self.steps_per_inference
+            
+            import pickle    
+            with open("inferred_actions.pkl", "wb") as f:
+                self.inferred_actions['ground_truth'] = self.data_to_save['action']
+                self.inferred_actions['left_gripper'] = np.array(self.inferred_actions['left_gripper'])
+                self.inferred_actions['right_gripper'] = np.array(self.inferred_actions['right_gripper'])
+                self.inferred_actions['left_arm'] = np.array(self.inferred_actions['left_arm'])
+                self.inferred_actions['right_arm'] = np.array(self.inferred_actions['right_arm'])
+                
+                pickle.dump(self.inferred_actions, f)
+                print("Actions saved successfully!")
                     
         except KeyboardInterrupt:
             print("Shutting down...")
@@ -512,7 +544,7 @@ if __name__ == "__main__":
     subscriber_process = Process(target=SubscriberNode, args=(shared_obs_dict,))
     subscriber_process.start()
     
-    diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/avatar/avatar_behavior_cloning/weights/teacher_aware_pos_only/latest.ckpt", shared_obs_dict, False))
+    diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/avatar/avatar_behavior_cloning/weights/teacher_aware_pos_only/latest_latest.ckpt", shared_obs_dict, False))
     diffusion_process.start()
     
     subscriber_process.join()
