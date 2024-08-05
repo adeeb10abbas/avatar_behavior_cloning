@@ -127,8 +127,8 @@ class SubscriberNode:
 class DiffusionROSInterface:
     def __init__(self, input, shared_obs_dict, fake_data=False):
         rospy.init_node("diffusion_ros_interface")
-        self.left_gripper_master_pub = rospy.Publisher("/diff_rdda_l_master_output", RDDAPacket, queue_size=10)
-        self.right_gripper_master_pub = rospy.Publisher("/diff_rdda_right_master_output", RDDAPacket, queue_size=10)
+        self.left_gripper_master_pub = rospy.Publisher("/rdda_l_master_output", RDDAPacket, queue_size=10)
+        self.right_gripper_master_pub = rospy.Publisher("/rdda_right_master_output", RDDAPacket, queue_size=10)
         self.left_smarty_arm_pub = rospy.Publisher("/diff_left_smarty_arm_output", PTIPacket, queue_size=10)
         self.right_smarty_arm_pub = rospy.Publisher("/diff_right_smarty_arm_output", PTIPacket, queue_size=10)
         self.obs_dict = shared_obs_dict
@@ -171,14 +171,14 @@ class DiffusionROSInterface:
 
             # set inference params
             self.policy.num_inference_steps = 16  # DDIM inference iterations
-            self.policy.n_action_steps = 1 #self.policy.horizon - self.policy.n_obs_steps + 1
+            self.policy.n_action_steps = 8 #self.policy.horizon - self.policy.n_obs_steps + 1
             self.steps_per_inference = self.policy.n_action_steps
 
         else:
             raise NotImplementedError(f"Unknown model type: {self.cfg.name}")
         
         import pickle
-        pkl_file = "/home/ali/avatar_recordings/bottles_new/synced/pkls/2024-07-20-12-16-10.pkl"
+        pkl_file = "/home/ali/avatar_recordings/bottle_pick_big_dataset/light/2024-07-26-21-15-44.pkl"
         print("Processing pkl file: %s" % pkl_file)
         with open(pkl_file, "rb") as f:
             data = pickle.load(f)
@@ -372,7 +372,7 @@ class DiffusionROSInterface:
 
             return packet
 
-        action_publish_rate = 10
+        action_publish_rate = 100
                
         print("shape of left gripper action: ", action_tuple[0].shape)
         left_gripper_action = self.interpolate_action(action_tuple[0], action_publish_rate)
@@ -432,7 +432,7 @@ class DiffusionROSInterface:
         for i in range(self.policy.n_obs_steps):
             obs = self.get_obs_from_pickle(i+1, 1)
             # obs = self.get_obs()
-            # pkl_index += self.policy.n_obs_steps
+            pkl_index += self.policy.n_obs_steps
         with torch.no_grad():
             self.policy.reset()
             print(obs['usb_cam_left'].shape)
@@ -455,7 +455,6 @@ class DiffusionROSInterface:
             start_delay = 1.0
             eval_t_start = time.time() + start_delay
             t_start = time.monotonic() + start_delay
-            # env.start_episode(eval_t_start)
             # wait for 1/30 sec to get the closest frame actually
             # reduces overall latency
             frame_latency = 1 / 30
@@ -467,7 +466,7 @@ class DiffusionROSInterface:
                 # calculate timing
                 t_cycle_end = t_start + (iter_idx + self.steps_per_inference) * self.dt
 
-                # get obs
+                # get obs from pickles
                 if (pkl_index == 0):
                     obs = self.get_obs_from_pickle(pkl_index + self.policy.n_obs_steps, self.policy.n_obs_steps)
                     pkl_index += self.policy.n_obs_steps
@@ -515,7 +514,7 @@ class DiffusionROSInterface:
 
                     # Convert the numpy action to ROS message and publish
                     # TODO: Need to figure out how to publish a trajectory of actions (sync or async?)
-                    # self.publish_actions(action_tuple)
+                    self.publish_actions(action_tuple)
                     self.save_actions(action_tuple)
 
                     # wait for execution
@@ -544,7 +543,7 @@ if __name__ == "__main__":
     subscriber_process = Process(target=SubscriberNode, args=(shared_obs_dict,))
     subscriber_process.start()
     
-    diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/avatar/avatar_behavior_cloning/weights/teacher_aware_pos_only/latest_latest.ckpt", shared_obs_dict, False))
+    diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/avatar/avatar_behavior_cloning/weights/teacher_aware_pos_only/latest_400.ckpt", shared_obs_dict, False))
     diffusion_process.start()
     
     subscriber_process.join()
