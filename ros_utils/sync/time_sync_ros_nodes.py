@@ -66,7 +66,7 @@ def main(input_bag_path, output_bag_path):
         subs.append(sub)
 
     rospy.loginfo("Setting up the ApproximateTimeSynchronizer.")
-    ats = ApproximateTimeSynchronizer(subs, queue_size=10, slop=0.1)
+    ats = ApproximateTimeSynchronizer(subs, queue_size=10, slop=1)
     ats.registerCallback(callback)
 
     # Publish all messages from the bag

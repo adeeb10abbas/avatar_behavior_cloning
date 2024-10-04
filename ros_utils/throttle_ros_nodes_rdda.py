@@ -9,9 +9,9 @@ from rdda_interface.msg import RDDAPacket
 def callback(image_left, image_right, image_table, right_smarty_arm, left_smarty_arm, right_glove, left_glove):
     global callbacks_received
     rospy.loginfo("Callback triggered - writing synchronized messages to the output bag.")
-    bag_out.write('/usb_cam_left/image_raw', image_left, image_left.header.stamp)
-    bag_out.write('/usb_cam_right/image_raw', image_right, image_right.header.stamp)
-    bag_out.write('/usb_cam_table/image_raw', image_table, image_table.header.stamp)
+    bag_out.write('/left_cam/color/image_raw', image_left, image_left.header.stamp)
+    bag_out.write('/right_cam/color/image_raw', image_right, image_right.header.stamp)
+    bag_out.write('/table_cam/color/image_raw', image_table, image_table.header.stamp)
     bag_out.write('/right_smarty_arm_output', right_smarty_arm, right_smarty_arm.header.stamp)
     bag_out.write('/left_smarty_arm_output', left_smarty_arm, left_smarty_arm.header.stamp)
     bag_out.write('/throttled_rdda_l_master_output', left_glove, left_glove.header.stamp)
@@ -28,9 +28,9 @@ def main(input_bag_path, output_bag_path):
     messages_published = 0
 
     subscribers = [
-        ('/usb_cam_left/image_raw', Image),
-        ('/usb_cam_right/image_raw', Image),
-        ('/usb_cam_table/image_raw', Image),
+        ('/left_cam/color/image_raw', Image),
+        ('/right_cam/color/image_raw', Image),
+        ('/table_cam/color/image_raw', Image),
         ('/right_smarty_arm_output', PTIPacket),
         ('/left_smarty_arm_output', PTIPacket),
         ('/throttled_rdda_l_master_output', RDDAPacket),
@@ -47,7 +47,7 @@ def main(input_bag_path, output_bag_path):
         subs.append(sub)
 
     rospy.loginfo("Setting up the ApproximateTimeSynchronizer.")
-    ats = ApproximateTimeSynchronizer(subs, queue_size=20, slop = )
+    ats = ApproximateTimeSynchronizer(subs, queue_size=20, slop = 0.1)
     ats.registerCallback(callback)
 
     # Publish all messages from the bag
