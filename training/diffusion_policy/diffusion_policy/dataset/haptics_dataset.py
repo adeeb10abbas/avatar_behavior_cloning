@@ -75,9 +75,9 @@ class AvatarHapticsImageDataset(BaseImageDataset):
         #     from_rep="quaternion", to_rep=rotation_rep
         # )
         self.obs_keys = [
-        "usb_cam_right",
-        "usb_cam_left",
-        "usb_cam_table",
+        "right_cam",
+        "left_cam",
+        "table_cam",
         "left_arm_pose",
         "right_arm_pose",
         "rdda_right_obs",
