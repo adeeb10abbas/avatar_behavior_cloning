@@ -42,9 +42,9 @@ def load_pkl_obs(pkl_path):
                                         ], axis=1)
 
     obs_dict = {}
-    obs_dict['usb_cam_left'] = data_to_save['usb_cam_left']
-    obs_dict['usb_cam_right'] = data_to_save['usb_cam_right']
-    obs_dict['usb_cam_table'] = data_to_save['usb_cam_table']
+    obs_dict['left_cam'] = data_to_save['left_cam']
+    obs_dict['right_cam'] = data_to_save['right_cam']
+    obs_dict['table_cam'] = data_to_save['table_cam']
     obs_dict['rdda_left_obs'] = data_to_save['rdda_left_obs']
     obs_dict['rdda_right_obs'] = data_to_save['rdda_right_obs']
     obs_dict['left_arm_pose'] = data_to_save['left_arm_pose']
