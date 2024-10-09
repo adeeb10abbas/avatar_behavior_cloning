@@ -51,7 +51,7 @@ class SubscriberNode:
             self.state_obs_left_arm_sub,
             self.state_obs_right_arm_sub,
         ]
-        self.ts = message_filters.ApproximateTimeSynchronizer(obs_subs, 10, slop=0.5)
+        self.ts = message_filters.ApproximateTimeSynchronizer(obs_subs, 10, slop=1.0)
         self.ts.registerCallback(self.callback)
         
         self.run()
@@ -113,16 +113,16 @@ class SubscriberNode:
         self.obs_dict['right_arm_pose'] = np_state4
         self.obs_dict['timestamp'] = img_timestamp
         
-        rospy.loginfo("Observations synchronized!")
-    
+        # rospy.loginfo("Observations synchronized!")
+        # rospy.loginfo(f"Image timestamp: {img_timestamp}, State timestamp: {state_timestamp}")
     def run(self):
         rospy.spin()
 
 class DiffusionROSInterface:
     def __init__(self, input, shared_obs_dict, fake_data=False):
         rospy.init_node("diffusion_ros_interface")
-        self.left_gripper_master_pub = rospy.Publisher("/rdda_l_master_output", RDDAPacket, queue_size=10)
-        self.right_gripper_master_pub = rospy.Publisher("/rdda_right_master_output", RDDAPacket, queue_size=10)
+        self.left_gripper_master_pub = rospy.Publisher("/rdda_l_master_output_", RDDAPacket, queue_size=10)
+        self.right_gripper_master_pub = rospy.Publisher("/rdda_right_master_output_", RDDAPacket, queue_size=10)
         self.left_smarty_arm_pub = rospy.Publisher("/left_smarty_arm_output", PTIPacket, queue_size=10)
         self.right_smarty_arm_pub = rospy.Publisher("/right_smarty_arm_output", PTIPacket, queue_size=10)
         self.obs_dict = shared_obs_dict
@@ -150,7 +150,7 @@ class DiffusionROSInterface:
         workspace.load_payload(payload, exclude_keys=None, include_keys=None)
 
         # hacks for method-specific setup.
-        self.frequency = 10
+        self.frequency = 7
         self.dt = 1.0 / self.frequency
         self.steps_per_inference = self.cfg['n_action_steps']
 
@@ -168,6 +168,7 @@ class DiffusionROSInterface:
             # set inference params
             self.policy.num_inference_steps = 16  # DDIM inference iterations
             self.policy.n_action_steps = self.policy.horizon - self.policy.n_obs_steps + 1
+            
             # self.policy.n_action_steps = 1
             # self.policy.horizon - self.policy.n_obs_steps + 1
             # self.policy.n_action_s = self.cfg
@@ -350,8 +351,14 @@ class DiffusionROSInterface:
         Parse the tensor action to the corresponding actions for the left gripper, right gripper, left arm and right arm
         """
         # TODO: Double check the order
-        assert action.shape[-1] == 24
-        
+        assert action.shape[-1] == 18
+        print(action)
+        print(self.obs_dict)
+        zeros = np.zeros((13, 3))
+        action = np.hstack((zeros, action[:, :9], zeros, action[:, 9:]))
+
+        print("Action shape: ", action.shape, action.shape[-1])
+        # import pdb; pdb.set_trace()i
         right_gripper_action = action[:, 0:3]  # N x 3
         right_arm_action = action[:, 3:12]  # N x 9
         
@@ -371,11 +378,11 @@ class DiffusionROSInterface:
             
             obs_dict = dict_apply(obs_dict_np, lambda x: torch.from_numpy(x).unsqueeze(0).to(self.device))
             print("In warming")
-            print(obs_dict['left_arm_pose'].shape)
+            # print(obs_dict['left_arm_pose'].shape)
             # import pdb; pdb.set_trace()
             result = self.policy.predict_action(obs_dict)
             action = result["action"][0].detach().to("cpu").numpy()
-            assert action.shape[-1] == 24
+            assert action.shape[-1] == 18
             del result
 
         print("Ready!")
@@ -449,13 +456,16 @@ class DiffusionROSInterface:
 
 
 if __name__ == "__main__":
+    
     manager = Manager()
     shared_obs_dict = manager.dict()
 
     subscriber_process = Process(target=SubscriberNode, args=(shared_obs_dict,))
     subscriber_process.start()
-    
-    diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/Downloads/latest_punyo_fourteen.ckpt", shared_obs_dict, False))
+    # for i in range(100):
+    #     time.sleep(2)
+    #     print(shared_obs_dict)
+    diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/Downloads/latest_table_only.ckpt", shared_obs_dict, False))
     diffusion_process.start()
     
     subscriber_process.join()
