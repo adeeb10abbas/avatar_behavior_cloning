@@ -32,13 +32,13 @@ from diffusion_policy.model.common.rotation_transformer import RotationTransform
 from diffusion_rollout_ros_sub import SubscriberNode
 
 class DiffusionROSInterface:
-    def __init__(self, input, shared_obs_dict, subscriber, fake_data=False):
+    def __init__(self, input, subscriber, fake_data=False):
         # rospy.init_node("diffusion_ros_interface")
         self.left_gripper_master_pub = rospy.Publisher("/rdda_l_master_output_", RDDAPacket, queue_size=10)
         self.right_gripper_master_pub = rospy.Publisher("/rdda_right_master_output_", RDDAPacket, queue_size=10)
         self.left_smarty_arm_pub = rospy.Publisher("/left_smarty_arm_output", PTIPacket, queue_size=10)
         self.right_smarty_arm_pub = rospy.Publisher("/right_smarty_arm_output", PTIPacket, queue_size=10)
-        self.obs_dict = shared_obs_dict
+        self.obs_dict = None
         self.obs_history = {
             'left_cam': deque(maxlen=10),
             'right_cam': deque(maxlen=10),
@@ -98,19 +98,21 @@ class DiffusionROSInterface:
         """
         # Since all the synchornization has been done by the filter, we can directly return the obs_dict
         t = time.monotonic()
-        while (len(self.obs_dict) == 0 and not self.fake_data):
-            try:
-                if time.monotonic() - t > 2:
-                    rospy.logerr("Timeout, no observations received")
-                    exit()
-                rospy.loginfo("Waiting for observations...")
-                time.sleep(0.5)
-            except KeyboardInterrupt:
-                rospy.loginfo("Shutting down...")
-                exit()
+        # while (len(self.obs_dict) == 0 and not self.fake_data):
+        #     try:
+        #         if time.monotonic() - t > 2:
+        #             rospy.logerr("Timeout, no observations received")
+        #             exit()
+        #         rospy.loginfo("Waiting for observations...")
+        #         time.sleep(0.5)
+        #     except KeyboardInterrupt:
+        #         rospy.loginfo("Shutting down...")
+        #         exit()
             
         t = time.monotonic()
-        obs_dict = self.subscriber.get_obs()
+        self.obs_dict = self.subscriber.get_obs()
+        self.obs_dict = dict_apply(self.obs_dict, lambda x: np.array(x))
+
         # obs_dict = dict_apply(copy.deepcopy(self.subscriber.get_obs()), lambda x: x)
         print(f"Get obs elapsed: {time.monotonic() - t} seconds")
 
@@ -151,7 +153,7 @@ class DiffusionROSInterface:
         #     'right_arm_pose': deque(maxlen=10),
         #     'timestamp': deque(maxlen=10),
         # }
-        return obs_dict
+        return self.obs_dict
 
     def interpolate_action(self, action_low_freq:np.ndarray, target_freq: int) -> np.ndarray:
         """
@@ -328,6 +330,7 @@ class DiffusionROSInterface:
 
                 # get obs
                 obs = self.get_obs()
+                # obs = self.subscriber.get_obs()[0]
                 if len(obs['timestamp']) < self.policy.n_obs_steps:
                     continue
                 obs_timestamps = obs["timestamp"]
@@ -384,13 +387,13 @@ if __name__ == "__main__":
 
     # subscriber_process = Process(target=SubscriberNode, args=(shared_obs_dict,))
     # subscriber_process.start()
-    shared_obs_dict = defaultdict(lambda: None)
+    # shared_obs_dict = defaultdict(lambda: None)
     subscriber = SubscriberNode(shared_obs_dict)
     
     # for i in range(100):
     #     time.sleep(2)
     #     print(shared_obs_dict)
-    DiffusionROSInterface("/home/ali/Downloads/latest_table_only.ckpt", shared_obs_dict, subscriber, False)
+    DiffusionROSInterface("/home/ali/Downloads/latest_table_only.ckpt", subscriber, False)
     # diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/Downloads/latest_table_only.ckpt", shared_obs_dict, False))
     # diffusion_process.start()
     

@@ -44,7 +44,16 @@ class SubscriberNode:
         self.state_obs_right_arm_sub = message_filters.Subscriber("/pti_interface_right/pti_output", PTIPacket)
 
         self.obs_dict = shared_obs_dict
-        self.obs_buffer = deque(maxlen=2)  # Buffer to hold the last two observations
+        self.obs_buffer = {
+            'left_cam': deque(maxlen=10),
+            'right_cam': deque(maxlen=10),
+            'table_cam': deque(maxlen=10),
+            'rdda_left_obs': deque(maxlen=10),
+            'rdda_right_obs': deque(maxlen=10),
+            'left_arm_pose': deque(maxlen=10),
+            'right_arm_pose': deque(maxlen=10),
+            'timestamp': deque(maxlen=10),
+        }  # Buffer to hold the last two observations
         
         obs_subs = [
             self.images_obs_sub1,
@@ -94,7 +103,15 @@ class SubscriberNode:
         }
 
         # Append the new observation to the buffer
-        self.obs_buffer.append(observation)
+        self.obs_buffer['left_cam'].append(observation['left_cam'])
+        self.obs_buffer['right_cam'].append(observation['right_cam'])
+        self.obs_buffer['table_cam'].append(observation['table_cam'])
+        self.obs_buffer['rdda_left_obs'].append(observation['rdda_left_obs'])
+        self.obs_buffer['rdda_right_obs'].append(observation["rdda_left_obs"])
+        self.obs_buffer['left_arm_pose'].append(observation['left_arm_pose'])
+        self.obs_buffer['right_arm_pose'].append(observation['right_arm_pose'])
+        self.obs_buffer['timestamp'].append(observation['timestamp'])        
+        
         self.obs_dict.update(observation)
 
     def get_obs(self):
