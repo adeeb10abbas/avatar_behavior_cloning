@@ -20,6 +20,7 @@ from torchvision import transforms
 from typing import Tuple
 import copy
 import time
+from collections import defaultdict
 
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
 from diffusion_policy.policy.base_image_policy import BaseImagePolicy
@@ -28,99 +29,11 @@ from diffusion_policy.real_world.real_inference_util import get_real_obs_resolut
 from diffusion_policy.common.pytorch_util import dict_apply
 from diffusion_policy.common.precise_sleep import precise_wait
 from diffusion_policy.model.common.rotation_transformer import RotationTransformer
-
-class SubscriberNode:
-    def __init__(self, shared_obs_dict):
-        rospy.init_node('observation_subscriber_node')
-
-        self.images_obs_sub1 = message_filters.Subscriber("/left_cam/color/image_raw", Image)
-        self.images_obs_sub2 = message_filters.Subscriber("/right_cam/color/image_raw", Image)
-        self.images_obs_sub3 = message_filters.Subscriber("/table_cam/color/image_raw", Image)
-        self.state_obs_left_gripper_sub = message_filters.Subscriber("/rdda_l_master_input", RDDAPacket)
-        self.state_obs_right_gripper_sub = message_filters.Subscriber("/rdda_right_master_input", RDDAPacket)
-        self.state_obs_left_arm_sub = message_filters.Subscriber("/pti_interface_left/pti_output", PTIPacket)
-        self.state_obs_right_arm_sub = message_filters.Subscriber("/pti_interface_right/pti_output", PTIPacket)
-
-        self.obs_dict = shared_obs_dict
-        obs_subs = [
-            self.images_obs_sub1,
-            self.images_obs_sub2,
-            self.images_obs_sub3,
-            self.state_obs_left_gripper_sub,
-            self.state_obs_right_gripper_sub,
-            self.state_obs_left_arm_sub,
-            self.state_obs_right_arm_sub,
-        ]
-        self.ts = message_filters.ApproximateTimeSynchronizer(obs_subs, 10, slop=1.0)
-        self.ts.registerCallback(self.callback)
-        
-        self.run()
-
-    def callback(self, img1, img2, img3, state1, state2, state3, state4):
-        """
-        Args:
-            img1 (Image): left camera image
-            img2 (Image): right camera image
-            img3 (Image): table camera image
-            state1 (RDDAPacket): rdda left gripper state
-            state2 (RDDAPacket): rdda right gripper state
-            state3 (PTIPacket): left arm state
-            state4 (PTIPacket): right arm state
-        """
-        bridge = CvBridge()
-        try:
-            cv_image1 = bridge.imgmsg_to_cv2(img1, desired_encoding="passthrough")
-            cv_image2 = bridge.imgmsg_to_cv2(img2, desired_encoding="passthrough")
-            cv_image3 = bridge.imgmsg_to_cv2(img3, desired_encoding="passthrough")
-
-        except CvBridgeError as e:
-            rospy.logerr(f"CvBridge Error: {e}")
-            return
-
-        img_timestamp = (img1.header.stamp.to_sec() + img2.header.stamp.to_sec() + img3.header.stamp.to_sec()) / 3
-        state_timestamp = (
-            state1.header.stamp.to_sec()
-            + state2.header.stamp.to_sec()
-            + state3.header.stamp.to_sec()
-            + state4.header.stamp.to_sec()
-        ) / 4
-        # rospy.loginfo(f"Image average timestamp: {img_timestamp}, State average timestamp: {state_timestamp}")
-
-        np_state1 = np.array(state1.pos)
-        np_state2 = np.array(state2.pos)
-        assert np_state1.shape == (3,)
-        assert np_state2.shape == (3,)
-        
-        # To use pytorch3d's conversion function, we need real part first quaternion
-        np_position3 = np.array([state3.position.x, state3.position.y, state3.position.z])
-        np_position4 = np.array([state4.position.x, state4.position.y, state4.position.z])
-        np_quat3 = np.array([state3.quat.w, state3.quat.x, state3.quat.y, state3.quat.z])
-        np_quat4 = np.array([state4.quat.w, state4.quat.x, state4.quat.y, state4.quat.z])
-        
-        tf = RotationTransformer(from_rep='quaternion', to_rep='rotation_6d')
-        np_state3 = np.concatenate((np_position3, tf.forward(np_quat3)))
-        np_state4 = np.concatenate((np_position4, tf.forward(np_quat4)))
-
-        assert np_state3.shape == (9,)
-        assert np_state4.shape == (9,)
-        
-        self.obs_dict['left_cam'] = cv_image1
-        self.obs_dict['right_cam'] = cv_image2
-        self.obs_dict['table_cam'] = cv_image3
-        self.obs_dict['rdda_left_obs'] = np_state1
-        self.obs_dict['rdda_right_obs'] = np_state2
-        self.obs_dict['left_arm_pose'] = np_state3
-        self.obs_dict['right_arm_pose'] = np_state4
-        self.obs_dict['timestamp'] = img_timestamp
-        
-        # rospy.loginfo("Observations synchronized!")
-        # rospy.loginfo(f"Image timestamp: {img_timestamp}, State timestamp: {state_timestamp}")
-    def run(self):
-        rospy.spin()
+from diffusion_rollout_ros_sub import SubscriberNode
 
 class DiffusionROSInterface:
-    def __init__(self, input, shared_obs_dict, fake_data=False):
-        rospy.init_node("diffusion_ros_interface")
+    def __init__(self, input, shared_obs_dict, subscriber, fake_data=False):
+        # rospy.init_node("diffusion_ros_interface")
         self.left_gripper_master_pub = rospy.Publisher("/rdda_l_master_output_", RDDAPacket, queue_size=10)
         self.right_gripper_master_pub = rospy.Publisher("/rdda_right_master_output_", RDDAPacket, queue_size=10)
         self.left_smarty_arm_pub = rospy.Publisher("/left_smarty_arm_output", PTIPacket, queue_size=10)
@@ -154,29 +67,26 @@ class DiffusionROSInterface:
         self.dt = 1.0 / self.frequency
         self.steps_per_inference = self.cfg['n_action_steps']
 
-        if "diffusion" in self.cfg.name:
-            # diffusion model
-            self.policy: BaseImagePolicy
-            self.policy = workspace.model
-            if self.cfg.training.use_ema:
-                self.policy = workspace.ema_model
+        self.policy: BaseImagePolicy
+        self.policy = workspace.model
+        if self.cfg.training.use_ema:
+            self.policy = workspace.ema_model
 
-            device = torch.device("cuda")
-            self.policy.eval().to(device)
-            rospy.loginfo("Policy evaluated")
+        device = torch.device("cuda")
+        self.policy.eval().to(device)
+        rospy.loginfo("Policy evaluated")
 
-            # set inference params
-            self.policy.num_inference_steps = 16  # DDIM inference iterations
-            self.policy.n_action_steps = self.policy.horizon - self.policy.n_obs_steps + 1
-            
+        # set inference params
+        self.policy.num_inference_steps = 16  # DDIM inference iterations
+        self.policy.n_action_steps = self.policy.horizon - self.policy.n_obs_steps + 1
+        
             # self.policy.n_action_steps = 1
             # self.policy.horizon - self.policy.n_obs_steps + 1
             # self.policy.n_action_s = self.cfg
-        else:
-            raise NotImplementedError(f"Unknown model type: {self.cfg.name}")
-        
+
         rospy.loginfo("Model Loaded!")
         self.obs_ready = False
+        self.subscriber = subscriber
         self.main()
 
     def get_obs(self) -> dict:
@@ -200,39 +110,47 @@ class DiffusionROSInterface:
                 exit()
             
         t = time.monotonic()
-        obs_dict = copy.deepcopy(self.obs_dict)
+        obs_dict = self.subscriber.get_obs()
+        # obs_dict = dict_apply(copy.deepcopy(self.subscriber.get_obs()), lambda x: x)
         print(f"Get obs elapsed: {time.monotonic() - t} seconds")
 
-        if self.fake_data == False:
-            self.obs_history['left_cam'].append(obs_dict['left_cam'])
-            self.obs_history['right_cam'].append(obs_dict['right_cam'])
-            self.obs_history['table_cam'].append(obs_dict['table_cam'])
-            self.obs_history['rdda_left_obs'].append(obs_dict['rdda_left_obs'])
-            self.obs_history['rdda_right_obs'].append(obs_dict["rdda_left_obs"])
-            self.obs_history['left_arm_pose'].append(obs_dict['left_arm_pose'])
-            self.obs_history['right_arm_pose'].append(obs_dict['right_arm_pose'])
-            self.obs_history['timestamp'].append(obs_dict['timestamp'])
-        else:
-            self.obs_history['left_cam'].append(np.random.rand(480, 640 ,3))
-            self.obs_history['right_cam'].append(np.random.rand(480, 640 ,3))
-            self.obs_history['table_cam'].append(np.random.rand(480, 640, 3))
-            self.obs_history['rdda_left_obs'].append(np.random.rand(3))
-            self.obs_history['rdda_right_obs'].append(np.random.rand(3))
-            self.obs_history['left_arm_pose'].append(np.random.rand(9))
-            self.obs_history['right_arm_pose'].append(np.random.rand(9))
-            self.obs_history['timestamp'].append(time.time())
-            rospy.logwarn("Using fake data...")
+        # if self.fake_data == False:
+        #     self.obs_history['left_cam'].append(obs_dict['left_cam'])
+        #     self.obs_history['right_cam'].append(obs_dict['right_cam'])
+        #     self.obs_history['table_cam'].append(obs_dict['table_cam'])
+        #     self.obs_history['rdda_left_obs'].append(obs_dict['rdda_left_obs'])
+        #     self.obs_history['rdda_right_obs'].append(obs_dict["rdda_left_obs"])
+        #     self.obs_history['left_arm_pose'].append(obs_dict['left_arm_pose'])
+        #     self.obs_history['right_arm_pose'].append(obs_dict['right_arm_pose'])
+        #     self.obs_history['timestamp'].append(obs_dict['timestamp'])
+        # else:
+        #     self.obs_history['left_cam'].append(np.random.rand(480, 640 ,3))
+        #     self.obs_history['right_cam'].append(np.random.rand(480, 640 ,3))
+        #     self.obs_history['table_cam'].append(np.random.rand(480, 640, 3))
+        #     self.obs_history['rdda_left_obs'].append(np.random.rand(3))
+        #     self.obs_history['rdda_right_obs'].append(np.random.rand(3))
+        #     self.obs_history['left_arm_pose'].append(np.random.rand(9))
+        #     self.obs_history['right_arm_pose'].append(np.random.rand(9))
+        #     self.obs_history['timestamp'].append(time.time())
+        #     rospy.logwarn("Using fake data...")
                 
         
-        obs_dict = dict_apply(self.obs_history, lambda x: np.array(x))
+        # obs_dict = dict_apply(self.obs_history, lambda x: np.array(x))
         # print(obs_dict['/left_cam/color/image_raw'].shape)
         # print(obs_dict['left_arm_pose'].shape)
         
         # Pop the pulled observations
-        # for key, item in self.obs_history.items():
-        #     if len(item) > 1:
-        #         self.obs_history[key].popleft()
-        
+        # del self.obs_history
+        # self.obs_history = {
+        #     'left_cam': deque(maxlen=10),
+        #     'right_cam': deque(maxlen=10),
+        #     'table_cam': deque(maxlen=10),
+        #     'rdda_left_obs': deque(maxlen=10),
+        #     'rdda_right_obs': deque(maxlen=10),
+        #     'left_arm_pose': deque(maxlen=10),
+        #     'right_arm_pose': deque(maxlen=10),
+        #     'timestamp': deque(maxlen=10),
+        # }
         return obs_dict
 
     def interpolate_action(self, action_low_freq:np.ndarray, target_freq: int) -> np.ndarray:
@@ -352,10 +270,14 @@ class DiffusionROSInterface:
         """
         # TODO: Double check the order
         assert action.shape[-1] == 18
-        print(action)
-        print(self.obs_dict)
-        zeros = np.zeros((13, 3))
+        # print(action)
+        # print(self.obs_dict)
+        # zeros = np.zeros((13, 3)) #only because it's an ablation rollout atm. Not commanding the grippers
+        # action = np.hstack((zeros, action[:, :9], zeros, action[:, 9:]))
+        
+        zeros = np.zeros((action.shape[0], 3))
         action = np.hstack((zeros, action[:, :9], zeros, action[:, 9:]))
+
 
         print("Action shape: ", action.shape, action.shape[-1])
         # import pdb; pdb.set_trace()i
@@ -423,7 +345,7 @@ class DiffusionROSInterface:
                     # Timestamps check, if the action timestamp is in the past, skip it
                     action_offset = 0
                     action_timestamps = (np.arange(len(action), dtype=np.float64) + action_offset) * self.dt + obs_timestamps[-1]
-                    action_exec_latency = 0.01
+                    action_exec_latency = 0.0
                     curr_time = time.time()
                     is_new = action_timestamps > (curr_time + action_exec_latency)
                     if np.sum(is_new) == 0:
@@ -460,13 +382,17 @@ if __name__ == "__main__":
     manager = Manager()
     shared_obs_dict = manager.dict()
 
-    subscriber_process = Process(target=SubscriberNode, args=(shared_obs_dict,))
-    subscriber_process.start()
+    # subscriber_process = Process(target=SubscriberNode, args=(shared_obs_dict,))
+    # subscriber_process.start()
+    shared_obs_dict = defaultdict(lambda: None)
+    subscriber = SubscriberNode(shared_obs_dict)
+    
     # for i in range(100):
     #     time.sleep(2)
     #     print(shared_obs_dict)
-    diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/Downloads/latest_table_only.ckpt", shared_obs_dict, False))
-    diffusion_process.start()
+    DiffusionROSInterface("/home/ali/Downloads/latest_table_only.ckpt", shared_obs_dict, subscriber, False)
+    # diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/Downloads/latest_table_only.ckpt", shared_obs_dict, False))
+    # diffusion_process.start()
     
-    subscriber_process.join()
-    diffusion_process.join()
+    # subscriber_process.join()
+    # diffusion_process.join()
