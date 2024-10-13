@@ -113,7 +113,7 @@ class SubscriberNode:
         self.obs_dict['right_arm_pose'] = np_state4
         self.obs_dict['timestamp'] = img_timestamp
         
-        rospy.loginfo("Observations synchronized!")
+        # rospy.loginfo("Observations synchronized!")
     
     def run(self):
         rospy.spin()
@@ -350,8 +350,14 @@ class DiffusionROSInterface:
         Parse the tensor action to the corresponding actions for the left gripper, right gripper, left arm and right arm
         """
         # TODO: Double check the order
-        assert action.shape[-1] == 24
-        
+        assert action.shape[-1] == 18
+        print(action)
+        print(self.obs_dict)
+        zeros = np.zeros((13, 3))
+        action = np.hstack((zeros, action[:, :9], zeros, action[:, 9:]))
+
+        print("Action shape: ", action.shape, action.shape[-1])
+        # import pdb; pdb.set_trace()i
         right_gripper_action = action[:, 0:3]  # N x 3
         right_arm_action = action[:, 3:12]  # N x 9
         
@@ -375,7 +381,7 @@ class DiffusionROSInterface:
             # import pdb; pdb.set_trace()
             result = self.policy.predict_action(obs_dict)
             action = result["action"][0].detach().to("cpu").numpy()
-            assert action.shape[-1] == 24
+            assert action.shape[-1] == 18
             del result
 
         print("Ready!")
@@ -455,7 +461,7 @@ if __name__ == "__main__":
     subscriber_process = Process(target=SubscriberNode, args=(shared_obs_dict,))
     subscriber_process.start()
     
-    diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/Downloads/latest_punyo_fourteen.ckpt", shared_obs_dict, False))
+    diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/Downloads/latest_table_only.ckpt", shared_obs_dict, False))
     diffusion_process.start()
     
     subscriber_process.join()
