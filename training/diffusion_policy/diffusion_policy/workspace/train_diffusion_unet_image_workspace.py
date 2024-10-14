@@ -73,11 +73,22 @@ class TrainDiffusionUnetImageWorkspace(BaseWorkspace):
         dataset: BaseImageDataset
         dataset = hydra.utils.instantiate(cfg.task.dataset)
         assert isinstance(dataset, BaseImageDataset)
-        train_dataloader = DataLoader(dataset, **cfg.dataloader)
         normalizer = dataset.get_normalizer()
 
+        if cfg.dataset_overfit:
+            print("Using overfit data")
+            # Repeat our dataset so we can achieve our desired batch size.
+            num_repeat = 10
+            dataset = torch.utils.data.ConcatDataset([dataset] * num_repeat)
+
+            # Use same exact thing for validation.
+            val_dataset = dataset
+        else:
+            val_dataset = dataset.get_validation_dataset()
+
+        train_dataloader = DataLoader(dataset, **cfg.dataloader)
+
         # configure validation dataset
-        val_dataset = dataset.get_validation_dataset()
         val_dataloader = DataLoader(val_dataset, **cfg.val_dataloader)
 
         self.model.set_normalizer(normalizer)

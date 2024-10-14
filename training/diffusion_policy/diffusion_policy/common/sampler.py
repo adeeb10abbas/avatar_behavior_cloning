@@ -122,13 +122,13 @@ class SequenceSampler:
         buffer_start_idx, buffer_end_idx, sample_start_idx, sample_end_idx \
             = self.indices[idx]
         result = dict()
-        self.keys = ["usb_cam_right",
-        "usb_cam_left",
-        "usb_cam_table",
-        "left_arm_pose",
-        "right_arm_pose",
-        "rdda_right_obs",
-        "rdda_left_obs", "action"]
+        # self.keys = ["usb_cam_right",
+        # "usb_cam_left",
+        # "usb_cam_table",
+        # "left_arm_pose",
+        # "right_arm_pose",
+        # "rdda_right_obs",
+        # "rdda_left_obs", "action"]
         for key in self.keys:
             # print(buffer_start_idx, buffer_end_idx)
             # print(f"index at {idx}: going through", key)

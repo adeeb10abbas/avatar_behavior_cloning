@@ -8,6 +8,21 @@ from diffusion_policy.model.common.module_attr_mixin import ModuleAttrMixin
 from diffusion_policy.common.pytorch_util import dict_apply, replace_submodules
 
 
+class NoopMultiImageObsEncoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, obs_dict):
+        shape = self.output_shape()
+        first_data = next(iter(obs_dict.values()))
+        batch_size = first_data.shape[0]
+        batch_shape = (batch_size,) + shape
+        return torch.zeros(batch_shape, device=first_data.device)
+
+    def output_shape(self):
+        return (0,)
+
+
 class MultiImageObsEncoder(ModuleAttrMixin):
     def __init__(self,
             shape_meta: dict,

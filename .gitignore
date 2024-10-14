@@ -4,3 +4,9 @@ bazel-*
 **/*.pkl
 # User-specified configuration
 **/**/user.bazelrc
+
+/data/pkl/
+/training/diffusion_policy/venv/
+
+# don't save plots
+/saved_png*.png

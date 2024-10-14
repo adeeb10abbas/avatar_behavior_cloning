@@ -1,131 +1,153 @@
+import copy
 import time
 # from multiprocessing.managers import SharedMemoryManager
 import click
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import dill
 import hydra
+import tqdm
 from omegaconf import OmegaConf
 import scipy.spatial.transform as st
-from diffusion_policy.real_world.real_inference_util import (
-    get_real_obs_dict)
+from diffusion_policy.common import debug
 from diffusion_policy.common.pytorch_util import dict_apply
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
 from diffusion_policy.policy.base_image_policy import BaseImagePolicy
 import pickle
 
-ckpt_path = "./weights/latest.ckpt"
-pkl_path = "./eval_data/2024-07-20-12-10-38.pkl"
-import matplotlib.pyplot as plt
 
-def load_pkl_obs(pkl_path):
-    print("Processing pkl file: %s" % pkl_path)
-    with open(pkl_path, "rb") as f:
-        data = pickle.load(f)
-        # import pdb; pdb.set_trace()
-    # Prepare data to be saved in Zarr
-    data_to_save = {}
-    for key, tensor_list in data.items():
-        print(key, len(tensor_list))
-        
-        data_to_save[key] = torch.stack(tensor_list).numpy()
-    # import pdb; pdb.set_trace()
-    rdda_right_act = data_to_save["rdda_right_act"]
-    right_operator_pose = data_to_save["right_operator_pose"]
-    rdda_left_act = data_to_save["rdda_left_act"]
-    left_operator_pose = data_to_save["left_operator_pose"]
-
-    data_to_save["action"] = np.concatenate([rdda_right_act, # 6
-                                        right_operator_pose, # 9
-                                        rdda_left_act, # 6
-                                        left_operator_pose # 9
-                                        ], axis=1)
-
-    obs_dict = {}
-    obs_dict['left_cam'] = data_to_save['left_cam']
-    obs_dict['right_cam'] = data_to_save['right_cam']
-    obs_dict['table_cam'] = data_to_save['table_cam']
-    obs_dict['rdda_left_obs'] = data_to_save['rdda_left_obs']
-    obs_dict['rdda_right_obs'] = data_to_save['rdda_right_obs']
-    obs_dict['left_arm_pose'] = data_to_save['left_arm_pose']
-    obs_dict['right_arm_pose'] = data_to_save['right_arm_pose']
-    obs_dict['action'] = data_to_save['action']
-    return obs_dict
-
-def get_obs_dict(loaded_pkl, index, size):
-    """
-    Extract a window of data from each key in the dictionary.
-    
-    Args:
-        loaded_pkl (dict): Dictionary containing various time series or batched data.
-        index (int): Start index from which to extract the data.
-        size (int): Number of data points to extract from the start index.
-    
-    Returns:
-        dict: A new dictionary with the same keys as `loaded_pkl` but containing only the window of data.
-    """
-    obs_dict = {}
-    if index < 2:
-        index = 2
-    for key, data in loaded_pkl.items():
-        if isinstance(data, np.ndarray) and data.ndim > 1:
-            obs_dict[key] = data[index:index+size]
-        else:
-            raise ValueError("Data under key '{}' is not in the expected format.".format(key))
-    return obs_dict
-
-raw_dict = load_pkl_obs(pkl_path=pkl_path)
+ckpt_path = "./training/diffusion_policy/data/outputs/2024.10.11/14.03.56_train_diffusion_unet_hybrid_haptic_image_teacher_aware/checkpoints/latest.ckpt"
 
 
+@debug.iex
+def main():
+    print("Load checkpoint + cfg")
+    payload = torch.load(open(ckpt_path, 'rb'), pickle_module=dill)
+    cfg = payload['cfg']
 
-obs_dict_sub = get_obs_dict(raw_dict, 1, 2)
-# import pdb; pdb.set_trace()
-# load checkpoint
-# ckpt_path = input
-payload = torch.load(open(ckpt_path, 'rb'), pickle_module=dill)
-cfg = payload['cfg']
-cls = hydra.utils.get_class(cfg._target_)
-workspace = cls(cfg)
-workspace: BaseWorkspace
-workspace.load_payload(payload, exclude_keys=None, include_keys=None)
+    cfg.policy.num_inference_steps = 8
 
-# diffusion model
-policy: BaseImagePolicy
-policy = workspace.model
-if cfg.training.use_ema:
-    policy = workspace.ema_model
+    print("Load dataset")
+    dataset = hydra.utils.instantiate(cfg.task.dataset)
 
-device = torch.device('cuda')
-policy.eval().to(device)
+    print("Construct")
+    cls = hydra.utils.get_class(cfg._target_)
+    workspace = cls(cfg)
+    workspace: BaseWorkspace
+    workspace.load_payload(payload, exclude_keys=None, include_keys=None)
 
-# set inference params
-policy.num_inference_steps = 16 # DDIM inference iterations
-# policy.n_action_steps = policy.horizon - policy.n_obs_steps + 1
-policy.n_action_steps = 4
+    # diffusion model
+    policy: BaseImagePolicy
+    policy = workspace.model
+    if cfg.training.use_ema:
+        policy = workspace.ema_model
 
-inferred_actions = []
-for i in range(1, len(raw_dict["action"])//policy.n_action_steps):
-        obs_dict_sub = get_obs_dict(raw_dict, i*policy.n_action_steps, 2)
-        obs_dict_torched = dict_apply(get_real_obs_dict(env_obs=obs_dict_sub, 
-                                                        shape_meta=cfg.task.shape_meta), lambda x: torch.from_numpy(x).unsqueeze(0).to(device=device))
+    torch.set_grad_enabled(False)
+
+    normalizer = copy.deepcopy(policy.normalizer)
+
+    device = torch.device('cuda')
+    policy.eval().to(device)
+
+    # TODO: Plot normalized values.
+
+    count = len(dataset)
+    # count = 33
+
+    print("get all obs")
+    obs_traj = {}
+    for i in tqdm.trange(1, count, policy.n_obs_steps):
+        batch = dataset[i]
+        obs_dict = batch["obs"]
+        obs_dict = normalizer.normalize(obs_dict)
+        for k, v in obs_dict.items():
+            if k not in obs_traj:
+                obs_traj[k] = []
+            obs_traj[k].extend(list(v.numpy()))
+
+    # Convert to numpy arrays.
+    obs_traj = {k: np.array(v) for k, v in obs_traj.items()}
+    for field, value in obs_traj.items():
+        _, D = value.shape
+        indices = np.arange(D)
+        label = [f"x[{x}]" for x in indices]
+
+        plt.figure()
+        plt.xlabel("obs index")
+        plt.title(f"{field}: used for inference")
+        plt.plot(value)
+
+        # plt.show()
+        file = f'saved_png_obs_{field}.png'
+        plt.savefig(file)
+        print(f"saved {file}")
+
+    act_start = policy.n_obs_steps - 1
+    act_end = act_start + policy.n_action_steps
+    act_slice = slice(act_start, act_end)
+
+    print("get gt vs inferred act")
+    gt_actions = []
+    inferred_actions = []
+
+    act_normalizer = normalizer['action']
+
+    # why is this so slow?!
+    for i in tqdm.trange(1, count, policy.n_action_steps):
+        batch = dataset[i]
+        obs_dict, gt_action = batch["obs"], batch["action"]
+        obs_dict_torched = dict_apply(
+            obs_dict, lambda x: x.cuda().unsqueeze(0)
+        )
         result = policy.predict_action(obs_dict_torched)
-        action = result["action"][0].detach().to("cpu").numpy()
+        # Use full action, and downselect.
+        action = result["action_pred"][0].cpu()
 
-        for j in [*action]:
-            inferred_actions.append(j)
+        action = act_normalizer.normalize(action)
+        gt_action = act_normalizer.normalize(gt_action)
 
-# Convert lists to NumPy arrays
-inferred = np.array(inferred_actions)
-ground_truth = np.array(raw_dict['action'])
-# import pdb; pdb.set_trace()
-# plt.cla()
-#addition here - rdda_right_act (3)[pos] + right_arm_ee_pose(9) + rdda_left_act(3) [pos] + left_operator_ee_pose(9) 
-plt.plot([i[3:12] for i in inferred], label='inferred_action')
-plt.plot([i[3:12] for i in ground_truth[:]], label=' ground_truth_action')
-plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
-# plt.show()
-plt.savefig('saved_png.png')
+        action = action.numpy()
+        gt_action = gt_action.numpy()
+        assert len(action) == len(gt_action)
 
-# import pdb; pdb.set_trace()
+        action = action[act_slice]
+        gt_action = gt_action[act_slice]
+
+        for action_j, gt_action_j in zip(action, gt_action):
+            inferred_actions.append(action_j)
+            gt_actions.append(gt_action_j)
+
+    # Convert lists to NumPy arrays
+
+    inferred = np.array(inferred_actions)
+    ground_truth = np.array(gt_actions)
+
+    act_fields = {
+        "rdda_right_act": slice(0, 3),
+        "right_arm_ee_pose": slice(3, 12),
+        "rdda_left_act": slice(12, 15),
+        "left_arm_ee_pose": slice(15, 24),
+    }
+    all_indices = np.arange(24)
+
+    for field, indices in act_fields.items():
+        label = [f"x[{x}]" for x in all_indices[indices]]
+
+        plt.figure()
+        plt.title(f"{field}: gt vs inferred")
+        plt.plot([i[indices] for i in ground_truth], label=label, linewidth=2)
+        plt.gca().set_prop_cycle(None)
+        plt.plot([i[indices] for i in inferred], linestyle="--")
+        plt.legend()
+
+        # plt.show()
+        file = f'saved_png_act_{field}.png'
+        plt.savefig(file)
+        print(f"saved {file}")
+
+        # import pdb; pdb.set_trace()
 
 
+if __name__ == "__main__":
+    main()
