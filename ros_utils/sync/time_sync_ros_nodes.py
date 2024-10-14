@@ -45,9 +45,9 @@ def main(input_bag_path, output_bag_path):
     last_published_time = {topic: time() for topic in topic_throttle_rate}
 
     subscribers = [
-        (f'{node_name}/usb_cam_left/image_raw', Image),
-        (f'{node_name}/usb_cam_right/image_raw', Image),
-        (f'{node_name}/usb_cam_table/image_raw', Image),
+        (f'{node_name}/left_cam/color/image_raw', Image),
+        (f'{node_name}/right_cam/color/image_raw', Image),
+        (f'{node_name}/table_cam/color/image_raw', Image),
         (f'{node_name}/right_smarty_arm_output', PTIPacket),
         (f'{node_name}/left_smarty_arm_output', PTIPacket),
         (f'{node_name}/left_arm_pose', PoseStamped),
