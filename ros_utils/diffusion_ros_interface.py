@@ -33,9 +33,9 @@ class SubscriberNode:
     def __init__(self, shared_obs_dict):
         rospy.init_node('observation_subscriber_node')
 
-        self.images_obs_sub1 = message_filters.Subscriber("/usb_cam_left/image_raw", Image)
-        self.images_obs_sub2 = message_filters.Subscriber("/usb_cam_right/image_raw", Image)
-        self.images_obs_sub3 = message_filters.Subscriber("/usb_cam_table/image_raw", Image)
+        self.images_obs_sub1 = message_filters.Subscriber("/left_cam/color/image_raw", Image)
+        self.images_obs_sub2 = message_filters.Subscriber("/right_cam/color/image_raw", Image)
+        self.images_obs_sub3 = message_filters.Subscriber("/table_cam/color/image_raw", Image)
         self.state_obs_left_gripper_sub = message_filters.Subscriber("/rdda_l_master_input", RDDAPacket)
         self.state_obs_right_gripper_sub = message_filters.Subscriber("/rdda_right_master_input", RDDAPacket)
         self.state_obs_left_arm_sub = message_filters.Subscriber("/pti_interface_left/pti_output", PTIPacket)
@@ -86,10 +86,10 @@ class SubscriberNode:
         ) / 4
         # rospy.loginfo(f"Image average timestamp: {img_timestamp}, State average timestamp: {state_timestamp}")
 
-        np_state1 = np.concatenate((state1.wave, state1.pos_d))
-        np_state2 = np.concatenate((state2.wave, state2.pos_d))
-        assert np_state1.shape == (6,)
-        assert np_state2.shape == (6,)
+        np_state1 = np.array(state1.pos)
+        np_state2 = np.array(state2.pos)
+        assert np_state1.shape == (3,)
+        assert np_state2.shape == (3,)
         
         # To use pytorch3d's conversion function, we need real part first quaternion
         np_position3 = np.array([state3.position.x, state3.position.y, state3.position.z])
@@ -104,16 +104,16 @@ class SubscriberNode:
         assert np_state3.shape == (9,)
         assert np_state4.shape == (9,)
         
-        self.obs_dict['usb_cam_left'] = cv_image1
-        self.obs_dict['usb_cam_right'] = cv_image2
-        self.obs_dict['usb_cam_table'] = cv_image3
+        self.obs_dict['left_cam'] = cv_image1
+        self.obs_dict['right_cam'] = cv_image2
+        self.obs_dict['table_cam'] = cv_image3
         self.obs_dict['rdda_left_obs'] = np_state1
         self.obs_dict['rdda_right_obs'] = np_state2
         self.obs_dict['left_arm_pose'] = np_state3
         self.obs_dict['right_arm_pose'] = np_state4
         self.obs_dict['timestamp'] = img_timestamp
         
-        rospy.loginfo("Observations synchronized!")
+        # rospy.loginfo("Observations synchronized!")
     
     def run(self):
         rospy.spin()
@@ -123,13 +123,13 @@ class DiffusionROSInterface:
         rospy.init_node("diffusion_ros_interface")
         self.left_gripper_master_pub = rospy.Publisher("/rdda_l_master_output", RDDAPacket, queue_size=10)
         self.right_gripper_master_pub = rospy.Publisher("/rdda_right_master_output", RDDAPacket, queue_size=10)
-        self.left_smarty_arm_pub = rospy.Publisher("/left_smarty_arm_output_", PTIPacket, queue_size=10)
-        self.right_smarty_arm_pub = rospy.Publisher("/right_smarty_arm_output_", PTIPacket, queue_size=10)
+        self.left_smarty_arm_pub = rospy.Publisher("/left_smarty_arm_output", PTIPacket, queue_size=10)
+        self.right_smarty_arm_pub = rospy.Publisher("/right_smarty_arm_output", PTIPacket, queue_size=10)
         self.obs_dict = shared_obs_dict
         self.obs_history = {
-            'usb_cam_left': deque(maxlen=10),
-            'usb_cam_right': deque(maxlen=10),
-            'usb_cam_table': deque(maxlen=10),
+            'left_cam': deque(maxlen=10),
+            'right_cam': deque(maxlen=10),
+            'table_cam': deque(maxlen=10),
             'rdda_left_obs': deque(maxlen=10),
             'rdda_right_obs': deque(maxlen=10),
             'left_arm_pose': deque(maxlen=10),
@@ -203,20 +203,20 @@ class DiffusionROSInterface:
         print(f"Get obs elapsed: {time.monotonic() - t} seconds")
 
         if self.fake_data == False:
-            self.obs_history['usb_cam_left'].append(obs_dict['usb_cam_left'])
-            self.obs_history['usb_cam_right'].append(obs_dict['usb_cam_right'])
-            self.obs_history['usb_cam_table'].append(obs_dict['usb_cam_table'])
+            self.obs_history['left_cam'].append(obs_dict['left_cam'])
+            self.obs_history['right_cam'].append(obs_dict['right_cam'])
+            self.obs_history['table_cam'].append(obs_dict['table_cam'])
             self.obs_history['rdda_left_obs'].append(obs_dict['rdda_left_obs'])
             self.obs_history['rdda_right_obs'].append(obs_dict["rdda_left_obs"])
             self.obs_history['left_arm_pose'].append(obs_dict['left_arm_pose'])
             self.obs_history['right_arm_pose'].append(obs_dict['right_arm_pose'])
             self.obs_history['timestamp'].append(obs_dict['timestamp'])
         else:
-            self.obs_history['usb_cam_left'].append(np.random.rand(480, 640 ,3))
-            self.obs_history['usb_cam_right'].append(np.random.rand(480, 640 ,3))
-            self.obs_history['usb_cam_table'].append(np.random.rand(480, 640, 3))
-            self.obs_history['rdda_left_obs'].append(np.random.rand(6))
-            self.obs_history['rdda_right_obs'].append(np.random.rand(6))
+            self.obs_history['left_cam'].append(np.random.rand(480, 640 ,3))
+            self.obs_history['right_cam'].append(np.random.rand(480, 640 ,3))
+            self.obs_history['table_cam'].append(np.random.rand(480, 640, 3))
+            self.obs_history['rdda_left_obs'].append(np.random.rand(3))
+            self.obs_history['rdda_right_obs'].append(np.random.rand(3))
             self.obs_history['left_arm_pose'].append(np.random.rand(9))
             self.obs_history['right_arm_pose'].append(np.random.rand(9))
             self.obs_history['timestamp'].append(time.time())
@@ -224,7 +224,7 @@ class DiffusionROSInterface:
                 
         
         obs_dict = dict_apply(self.obs_history, lambda x: np.array(x))
-        # print(obs_dict['usb_cam_left'].shape)
+        # print(obs_dict['/left_cam/color/image_raw'].shape)
         # print(obs_dict['left_arm_pose'].shape)
         
         # Pop the pulled observations
@@ -284,10 +284,12 @@ class DiffusionROSInterface:
         assert len(action_tuple[2]) == len(action_tuple[3])
 
         def create_RDDAPacket(action):
-            assert len(action) == 6
+            assert len(action) == 3
             packet = RDDAPacket()
-            packet.wave = [action[0], action[1], action[2]]
-            packet.pos_d = [action[3], action[4], action[5]]
+            packet.pos = [action[0], action[1], action[2]] 
+            # ^ Get the action from the tensor
+            # packet.wave = [action[0], action[1], action[2]]
+            # packet.pos_d = [action[3], action[4], action[5]]
             packet.header.stamp = rospy.get_rostime()
             # assert(len(packet.wave) == 3)
             # assert(len(packet.pos_d) == 3)
@@ -348,13 +350,19 @@ class DiffusionROSInterface:
         Parse the tensor action to the corresponding actions for the left gripper, right gripper, left arm and right arm
         """
         # TODO: Double check the order
-        assert action.shape[-1] == 30
+        assert action.shape[-1] == 18
+        print(action)
+        print(self.obs_dict)
+        zeros = np.zeros((13, 3))
+        action = np.hstack((zeros, action[:, :9], zeros, action[:, 9:]))
+
+        print("Action shape: ", action.shape, action.shape[-1])
+        # import pdb; pdb.set_trace()i
+        right_gripper_action = action[:, 0:3]  # N x 3
+        right_arm_action = action[:, 3:12]  # N x 9
         
-        right_gripper_action = action[:, 0:6]  # N x 6
-        right_arm_action = action[:, 6:15]  # N x 9
-        
-        left_gripper_action = action[:, 15:21]  # N x 6
-        left_arm_action = action[:, 21:]  # N x 9
+        left_gripper_action = action[:, 12:15]  # N x 3
+        left_arm_action = action[:, 15:]  # N x 9
         return left_gripper_action, right_gripper_action, left_arm_action, right_arm_action
 
     def main(self):
@@ -364,7 +372,7 @@ class DiffusionROSInterface:
         
         with torch.no_grad():
             self.policy.reset()
-            print(obs['usb_cam_left'].shape)
+            # print(obs['/left_cam/color/image_raw'].shape)
             obs_dict_np = get_real_obs_dict(env_obs=obs, shape_meta=self.cfg.task.shape_meta)
             
             obs_dict = dict_apply(obs_dict_np, lambda x: torch.from_numpy(x).unsqueeze(0).to(self.device))
@@ -373,7 +381,7 @@ class DiffusionROSInterface:
             # import pdb; pdb.set_trace()
             result = self.policy.predict_action(obs_dict)
             action = result["action"][0].detach().to("cpu").numpy()
-            assert action.shape[-1] == 30
+            assert action.shape[-1] == 18
             del result
 
         print("Ready!")
@@ -453,7 +461,7 @@ if __name__ == "__main__":
     subscriber_process = Process(target=SubscriberNode, args=(shared_obs_dict,))
     subscriber_process.start()
     
-    diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/latest.ckpt", shared_obs_dict, False))
+    diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/Downloads/latest_table_only.ckpt", shared_obs_dict, False))
     diffusion_process.start()
     
     subscriber_process.join()
