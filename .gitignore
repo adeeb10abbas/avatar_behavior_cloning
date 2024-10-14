@@ -4,3 +4,6 @@ bazel-*
 **/*.pkl
 # User-specified configuration
 **/**/user.bazelrc
+
+/data/pkl/
+/training/diffusion_policy/venv/

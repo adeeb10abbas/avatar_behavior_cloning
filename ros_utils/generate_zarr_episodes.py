@@ -18,7 +18,7 @@ def main(input_pkl_file_path):
     pkl_list = []
     for root, dirs, files in os.walk(input_pkl_file_path):
         for file in files:
-            if file.endswith(".pkl"):
+            if file.endswith(".min.pkl"):  # ERIC HACK
                 pkl_list.append(os.path.join(root, file))
                 
     # Process each pkl file

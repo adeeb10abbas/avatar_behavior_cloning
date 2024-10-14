@@ -49,7 +49,7 @@ class AvatarHapticsImageDataset(BaseImageDataset):
         horizon: int = 1,
         pad_before: int = 0,
         pad_after: int = 0,
-        n_obs_steps: int | None = None,
+        n_obs_steps = None,
         abs_action: bool = False,
         rotation_rep: str = "rotation_6d",  # ignored when abs_action=False
         seed: int = 42,
@@ -74,15 +74,16 @@ class AvatarHapticsImageDataset(BaseImageDataset):
         # rotation_transformer = RotationTransformer(
         #     from_rep="quaternion", to_rep=rotation_rep
         # )
-        self.obs_keys = [
-        "right_cam",
-        "left_cam",
-        "table_cam",
-        "left_arm_pose",
-        "right_arm_pose",
-        "rdda_right_obs",
-        "rdda_left_obs"
-        ]
+        # self.obs_keys = [
+        # "right_cam",
+        # "left_cam",
+        # "table_cam",
+        # "left_arm_pose",
+        # "right_arm_pose",
+        # "rdda_right_obs",
+        # "rdda_left_obs"
+        # ]
+        self.obs_keys = list(shape_meta["obs"].keys())
         self.all_keys = self.obs_keys + ["action"]
         replay_buffer = ReplayBuffer.copy_from_path(
             zarr_path=dataset_path, 
