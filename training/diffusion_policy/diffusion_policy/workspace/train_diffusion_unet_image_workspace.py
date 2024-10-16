@@ -75,16 +75,8 @@ class TrainDiffusionUnetImageWorkspace(BaseWorkspace):
         assert isinstance(dataset, BaseImageDataset)
         normalizer = dataset.get_normalizer()
 
-        if cfg.dataset_overfit:
-            print("Using overfit data")
-            # Repeat our dataset so we can achieve our desired batch size.
-            num_repeat = 10
-            dataset = torch.utils.data.ConcatDataset([dataset] * num_repeat)
 
-            # Use same exact thing for validation.
-            val_dataset = dataset
-        else:
-            val_dataset = dataset.get_validation_dataset()
+        val_dataset = dataset.get_validation_dataset()
 
         train_dataloader = DataLoader(dataset, **cfg.dataloader)
 

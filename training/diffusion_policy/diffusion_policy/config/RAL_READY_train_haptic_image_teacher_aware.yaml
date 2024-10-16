@@ -19,15 +19,15 @@ image_shape: &image_shape [3, 480, 640]
 shape_meta: &shape_meta
   # acceptable types: rgb, low_dim
   obs:
-    usb_cam_right:
-      shape: *image_shape
-      type: rgb
-    usb_cam_left:
-      shape: *image_shape
-      type: rgb
-    usb_cam_table:
-      shape: *image_shape
-      type: rgb
+    # usb_cam_right:
+    #   shape: *image_shape
+    #   type: rgb
+    # usb_cam_left:
+    #   shape: *image_shape
+    #   type: rgb
+    # usb_cam_table:
+    #   shape: *image_shape
+    #   type: rgb
     left_arm_pose:
       shape: [9] # left robot EE pose
       type: low_dim
@@ -47,7 +47,7 @@ shape_meta: &shape_meta
 task:
   name: haptic_image_teacher_aware
   task_name: bottle_pick
-  dataset_path: /home/ali/shared_volume/bottle_pick/teacher_aware/_replay_buffer.zarr
+  dataset_path: /home/ali/shared_volume/avatar_behavior_cloning/ros_utils/ta_zarr/_replay_buffer.zarr
   dataset_type: ph
   abs_action: ${abs_action}
   shape_meta: ${shape_meta}
@@ -89,7 +89,7 @@ policy:
     rgb_model:
       _target_: diffusion_policy.model.vision.model_getter.get_resnet
       name: resnet18
-      weights: IMAGENET1K_V1
+      weights: null
     resize_shape: [240, 320]
     crop_shape: [216, 288] # ch, cw 240x320 90%
     random_crop: True
@@ -121,14 +121,14 @@ ema:
   max_value: 0.9999
 
 dataloader:
-  batch_size: 56
+  batch_size: 356
   num_workers: 14
   shuffle: False
   pin_memory: False
   persistent_workers: True
 
 val_dataloader:
-  batch_size: 36
+  batch_size: 76
   num_workers: 14
   shuffle: False
   pin_memory: False
@@ -149,7 +149,7 @@ training:
   # optimization
   lr_scheduler: cosine
   lr_warmup_steps: 500
-  num_epochs: 4000
+  num_epochs: 1000
   gradient_accumulate_every: 1
   # EMA destroys performance when used with BatchNorm
   # replace BatchNorm with GroupNorm.
@@ -157,10 +157,10 @@ training:
   freeze_encoder: False
   # training loop control
   # in epochs
-  rollout_every: 5
-  checkpoint_every: 50
-  val_every: 1
-  sample_every: 1
+  rollout_every: 10
+  checkpoint_every: 10
+  val_every: 10
+  sample_every: 5
   # steps per epoch
   max_train_steps: null
   max_val_steps: null
