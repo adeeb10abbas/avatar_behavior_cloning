@@ -1,0 +1,1 @@
+roslaunch realsense2_camera rs_multiple_devices.launch serial_no_camera1:=108222250646 serial_no_camera2:=816612062459 serial_no_camera3:=821212062169 camera3:=left_cam camera1:=table_cam camera2:=right_cam color_width:=640 color_height:=480 color_fps:=30 
