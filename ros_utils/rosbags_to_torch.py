@@ -50,9 +50,9 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
     rdda_packet_to_tensor_teacher = partial(rdda_packet_to_tensor, mode=mode)
 
     topic_handlers = {
-        "/usb_cam_left/image_raw": image_to_tensor, # obs
-        "/usb_cam_right/image_raw": image_to_tensor, # obs
-        "/usb_cam_table/image_raw": image_to_tensor, # obs
+        "/left_cam/color/image_raw": image_to_tensor, # obs
+        "/right_cam/color/image_raw": image_to_tensor, # obs
+        "/table_cam/color/image_raw": image_to_tensor, # obs
         "/right_smarty_arm_output": right_arm_pose_handler, # obs + action (user)
         "/left_smarty_arm_output": left_arm_pose_handler, # obs + action (user)
         "/left_arm_pose": panda_arm_pose_to_tensor, # obs
@@ -68,11 +68,11 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
                 if "throttled" in topic:
                     if mode == "teacher_aware": 
                         # Teacher Aware
-                        obs_tensor = tensor[:3] # 6
-                        action_tensor = tensor[3:] # 6
+                        obs_tensor = tensor[:3] # 3
+                        action_tensor = tensor[3:] # 3
                     else: ## Policy Aware
                         obs_tensor = tensor[:6] # 6
-                        action_tensor = tensor[6:] # 6
+                        action_tensor = tensor[6:] # 3
 
                     data_structure["rdda_left_act" if "rdda_l" in topic else "rdda_right_act"].append(action_tensor)
                     data_structure["rdda_left_obs" if "rdda_l" in topic else "rdda_right_obs"].append(obs_tensor)
