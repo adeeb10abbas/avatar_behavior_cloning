@@ -175,13 +175,13 @@ class AvatarHapticsImageDataset(BaseImageDataset):
 
         # action
         stat = array_to_stats(self.replay_buffer["action"])
-        if self.abs_action:
-            this_normalizer = robomimic_abs_action_only_normalizer_from_stat(
-                stat
-            )
-        else:
-            # already normalized
-            this_normalizer = get_identity_normalizer_from_stat(stat)
+        # if self.abs_action:
+        #     this_normalizer = robomimic_abs_action_only_normalizer_from_stat(
+        #         stat
+        #     )
+        # else:
+        #     # already normalized
+        this_normalizer = get_range_normalizer_from_stat(stat)
         normalizer["action"] = this_normalizer
 
         for key in self.lowdim_keys:

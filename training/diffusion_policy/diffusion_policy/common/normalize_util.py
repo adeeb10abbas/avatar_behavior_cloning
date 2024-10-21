@@ -3,7 +3,7 @@ from diffusion_policy.common.pytorch_util import dict_apply, dict_apply_reduce, 
 import numpy as np
 
 
-def get_range_normalizer_from_stat(stat, output_max=1, output_min=-1, range_eps=1e-7):
+def get_range_normalizer_from_stat(stat, output_max=1, output_min=-1, range_eps=1e-12):
     # -1, 1 normalization
     input_max = stat['max']
     input_min = stat['min']
