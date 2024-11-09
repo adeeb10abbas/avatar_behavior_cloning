@@ -1,4 +1,3 @@
-# Copyright (c) 2024 Boston Dynamics AI Institute LLC. All rights reserved.
 import concurrent.futures
 import copy
 import multiprocessing

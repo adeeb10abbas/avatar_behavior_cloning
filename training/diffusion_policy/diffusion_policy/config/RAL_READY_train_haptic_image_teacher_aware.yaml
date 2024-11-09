@@ -19,15 +19,15 @@ image_shape: &image_shape [3, 480, 640]
 shape_meta: &shape_meta
   # acceptable types: rgb, low_dim
   obs:
-    # usb_cam_right:
-    #   shape: *image_shape
-    #   type: rgb
-    # usb_cam_left:
-    #   shape: *image_shape
-    #   type: rgb
-    # usb_cam_table:
-    #   shape: *image_shape
-    #   type: rgb
+    # right_cam:
+    #    shape: *image_shape
+    #    type: rgb
+    # left_cam:
+    #    shape: *image_shape
+    #    type: rgb
+    # table_cam:
+    #    shape: *image_shape
+    #    type: rgb
     left_arm_pose:
       shape: [9] # left robot EE pose
       type: low_dim
@@ -46,8 +46,8 @@ shape_meta: &shape_meta
 
 task:
   name: haptic_image_teacher_aware
-  task_name: bottle_pick
-  dataset_path: /home/ali/shared_volume/avatar_behavior_cloning/ros_utils/ta_zarr/_replay_buffer.zarr
+  task_name: bottle_pick_lower_down_dims_1024
+  dataset_path: /home/ali/avatar_recordings/dumb_lift/pkls/_replay_buffer.zarr
   dataset_type: ph
   abs_action: ${abs_action}
   shape_meta: ${shape_meta}
@@ -104,7 +104,7 @@ policy:
   obs_as_global_cond: ${obs_as_global_cond}
   # crop_shape: null
   diffusion_step_embed_dim: 128
-  down_dims: [512, 1024, 2048]
+  down_dims: [256, 512, 1024]
   kernel_size: 5
   n_groups: 8
   cond_predict_scale: True
@@ -121,14 +121,14 @@ ema:
   max_value: 0.9999
 
 dataloader:
-  batch_size: 356
+  batch_size: 8000
   num_workers: 14
   shuffle: False
   pin_memory: False
   persistent_workers: True
 
 val_dataloader:
-  batch_size: 76
+  batch_size: 6000
   num_workers: 14
   shuffle: False
   pin_memory: False

@@ -38,6 +38,7 @@ def main(input_pkl_file_path):
         right_operator_pose = data_to_save["right_operator_pose"]
         rdda_left_act = data_to_save["rdda_left_act"]
         left_operator_pose = data_to_save["left_operator_pose"]
+        time_stamp = data_to_save["timestamp"]
 
         # Stack the arrays along the 0th dimension
         data_to_save["action"] = np.concatenate([rdda_right_act, # 6

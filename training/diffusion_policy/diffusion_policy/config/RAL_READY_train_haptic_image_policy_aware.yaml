@@ -1,6 +1,6 @@
 # Reference: https://diffusion-policy.cs.columbia.edu/data/experiments/image/tool_hang_ph/diffusion_policy_cnn/config.yaml
 _target_: diffusion_policy.workspace.train_diffusion_unet_image_workspace.TrainDiffusionUnetImageWorkspace
-name: train_diffusion_unet_hybrid
+name: policy_aware_haptic_image
 exp_name: diffusion_ddim
 task_name: ${task.name}
 action_dim: 24
@@ -19,13 +19,13 @@ image_shape: &image_shape [3, 480, 640]
 shape_meta: &shape_meta
   # acceptable types: rgb, low_dim
   obs:
-    # usb_cam_right:
+    # right_cam:
     #   shape: *image_shape
     #   type: rgb
-    # usb_cam_left:
+    # left_cam:
     #   shape: *image_shape
     #   type: rgb
-    # usb_cam_table:
+    # table_cam:
     #   shape: *image_shape
     #   type: rgb
     left_arm_pose:
@@ -41,14 +41,13 @@ shape_meta: &shape_meta
       shape: [6] # pos_tensor, pressure tensor
       type: low_dim
   action:
-    shape: [24]
-    # addition here - rdda_right_act (3)[pos] + rdda_left_act(3)[pos] + left_operator_ee_pose(9) 
-    # + right_arm_ee_pose(9)
+    shape: [30]
+    # addition here - rdda_right_act (6)[pos, wave] + right_arm_ee_pose(9) + rdda_left_act(3) [pos, wave] + left_operator_ee_pose(9) 
 
 task:
   name: haptic_image_teacher_aware
   task_name: bottle_pick
-  dataset_path: /home/ali/shared_volume/avatar_behavior_cloning/ros_utils/_replay_buffer.zarr
+  dataset_path: /home/ali/avatar_recordings/dumb_lift/pkls_policy_aware/_replay_buffer.zarr
   dataset_type: ph
   abs_action: ${abs_action}
   shape_meta: ${shape_meta}
@@ -122,14 +121,14 @@ ema:
   max_value: 0.9999
 
 dataloader:
-  batch_size: 356
+  batch_size: 48
   num_workers: 14
   shuffle: False
   pin_memory: False
   persistent_workers: True
 
 val_dataloader:
-  batch_size: 76
+  batch_size: 16
   num_workers: 14
   shuffle: False
   pin_memory: False

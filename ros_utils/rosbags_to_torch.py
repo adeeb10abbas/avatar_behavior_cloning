@@ -43,7 +43,7 @@ def concatenate_data(data_list, desired_len=256):
 
 def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
     assert mode in ["teacher_aware", "policy_aware"], "Mode must be either 'teacher_aware' or 'policy_aware'"
-    data_structure = {"rdda_right_obs": [], "rdda_right_act": [], "rdda_left_obs": [], "rdda_left_act": [],}
+    data_structure = {"rdda_right_obs": [], "rdda_right_act": [], "rdda_left_obs": [], "rdda_left_act": [], "timestamp": []}
     left_arm_pose_handler = partial(operator_arm_pose_to_tensor, side="left")
     right_arm_pose_handler = partial(operator_arm_pose_to_tensor, side="right")
     
@@ -65,6 +65,10 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
         for topic, msg, t in bag.read_messages():
             if topic in topic_handlers:
                 tensor = topic_handlers[topic](msg, t=t)
+                t = torch.tensor(t.to_sec())
+                if "right_smarty_arm_output" in topic:
+                    data_structure["timestamp"].append(t)
+                    
                 if "throttled" in topic:
                     if mode == "teacher_aware": 
                         # Teacher Aware
@@ -73,6 +77,8 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
                     else: ## Policy Aware
                         obs_tensor = tensor[:6] # 6
                         action_tensor = tensor[6:] # 3
+                    
+
 
                     data_structure["rdda_left_act" if "rdda_l" in topic else "rdda_right_act"].append(action_tensor)
                     data_structure["rdda_left_obs" if "rdda_l" in topic else "rdda_right_obs"].append(obs_tensor)
@@ -88,7 +94,6 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
                     if topic_key not in data_structure:
                         data_structure[topic_key] = []
                     data_structure[topic_key].append(tensor)
-
     # Saving the organized data without concatenation
     with open(output_file_path, 'wb') as f:
         pickle.dump(data_structure, f)

@@ -14,8 +14,8 @@ from diffusion_policy.workspace.base_workspace import BaseWorkspace
 from diffusion_policy.policy.base_image_policy import BaseImagePolicy
 import pickle
 
-ckpt_path = "./weights/latest.ckpt"
-pkl_path = "./eval_data/2024-07-20-12-10-38.pkl"
+ckpt_path = "epoch=0990-train_loss=0.000.ckpt"
+pkl_path = "2024-10-16-21-06-12.pkl"
 import matplotlib.pyplot as plt
 
 def load_pkl_obs(pkl_path):
@@ -42,9 +42,9 @@ def load_pkl_obs(pkl_path):
                                         ], axis=1)
 
     obs_dict = {}
-    obs_dict['usb_cam_left'] = data_to_save['usb_cam_left']
-    obs_dict['usb_cam_right'] = data_to_save['usb_cam_right']
-    obs_dict['usb_cam_table'] = data_to_save['usb_cam_table']
+    obs_dict['left_cam'] = data_to_save['left_cam']
+    obs_dict['right_cam'] = data_to_save['right_cam']
+    obs_dict['table_cam'] = data_to_save['table_cam']
     obs_dict['rdda_left_obs'] = data_to_save['rdda_left_obs']
     obs_dict['rdda_right_obs'] = data_to_save['rdda_right_obs']
     obs_dict['left_arm_pose'] = data_to_save['left_arm_pose']
@@ -78,7 +78,7 @@ raw_dict = load_pkl_obs(pkl_path=pkl_path)
 
 
 
-obs_dict_sub = get_obs_dict(raw_dict, 1, 2)
+obs_dict_sub = get_obs_dict(raw_dict, 0, 2)
 # import pdb; pdb.set_trace()
 # load checkpoint
 # ckpt_path = input
@@ -101,10 +101,10 @@ policy.eval().to(device)
 # set inference params
 policy.num_inference_steps = 16 # DDIM inference iterations
 # policy.n_action_steps = policy.horizon - policy.n_obs_steps + 1
-policy.n_action_steps = 4
+policy.n_action_steps = 8
 
 inferred_actions = []
-for i in range(1, len(raw_dict["action"])//policy.n_action_steps):
+for i in range(0, len(raw_dict["action"])//policy.n_action_steps):
         obs_dict_sub = get_obs_dict(raw_dict, i*policy.n_action_steps, 2)
         obs_dict_torched = dict_apply(get_real_obs_dict(env_obs=obs_dict_sub, 
                                                         shape_meta=cfg.task.shape_meta), lambda x: torch.from_numpy(x).unsqueeze(0).to(device=device))
@@ -120,7 +120,7 @@ ground_truth = np.array(raw_dict['action'])
 # import pdb; pdb.set_trace()
 # plt.cla()
 #addition here - rdda_right_act (3)[pos] + right_arm_ee_pose(9) + rdda_left_act(3) [pos] + left_operator_ee_pose(9) 
-plt.plot([i[3:12] for i in inferred], label='inferred_action')
+plt.plot([i[3:12] for i in inferred], label='inferred_action', linestyle='dashed')
 plt.plot([i[3:12] for i in ground_truth[:]], label=' ground_truth_action')
 plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
 # plt.show()
