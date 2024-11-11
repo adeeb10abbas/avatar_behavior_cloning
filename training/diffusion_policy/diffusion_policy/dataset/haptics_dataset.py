@@ -44,7 +44,7 @@ class AvatarHapticsImageDataset(BaseImageDataset):
     def __init__(
         self,
         dataset_path: str,
-        shape_meta: dict[str, dict],
+        shape_meta,
         horizon: int = 1,
         pad_before: int = 0,
         pad_after: int = 0,
@@ -202,7 +202,7 @@ class AvatarHapticsImageDataset(BaseImageDataset):
         """Return the number of items of sampler container."""
         return len(self.sampler)
 
-    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
+    def __getitem__(self, idx: int):
         """Return a specific item."""
         threadpool_limits(1)
         data = self.sampler.sample_sequence(idx)

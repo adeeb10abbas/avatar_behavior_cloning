@@ -30,11 +30,11 @@ class ZarrPolicyWrapper(BasePolicyWrapper):
         payload = torch.load(open(ckpt_path, "rb"), pickle_module=dill)
         self.cfg = payload["cfg"].task.dataset
         self.cfg.dataset_path = zarr_path
-        with open_dict(self.cfg):
-            pass
-            # self.cfg.shape_meta.obs["timestamp"] = {"shape": [1], "type": "low_dim"}
-            
-        # self.cfg.shape_meta.obs["timestamp"] = {"shape": [1], "type": "low_dim"}
+        OmegaConf.set_struct(self.cfg.shape_meta.obs, False)
+        self.cfg.shape_meta.obs["timestamp"] = {"shape": [1], "type": "low_dim"}
+        OmegaConf.set_struct(self.cfg.shape_meta.obs, True)
+
+        # self.cfg.data
         print(self.cfg)
         self.dataset = hydra.utils.instantiate(self.cfg)
         import pdb; pdb.set_trace()
@@ -48,18 +48,28 @@ class ZarrPolicyWrapper(BasePolicyWrapper):
         """
         raw obs_dict. We cast it here to torch
         """
-        pass
+        obs_dict = self.torchify_obs(obs_dict)
+        with torch.no_grad():
+            result = self.policy.predict_action(obs_dict)
+            action = result["action"][0].detach().to("cpu").numpy()
+            assert action.shape[-1] == 24
+            del result
+        print("Warm up done! Ready for roll!")
     
     def run_inference(self, obs_dict):
-        obs_time = obs_dict["timestamp"]
+        obs_dict = self.torchify_obs(obs_dict)
+        result = self.policy.predict_action(obs_dict)
+        action = result["action"][0].detach().to("cpu").numpy()
+        return action
+        
         
 
-zarr_path_ = "/home/ali/avatar_recordings/dumb_lift/isolated_zarr_playback/_generated_replay_buffer.zarr"
-ckpt_path_ = "/home/ali/avatar/avatar_behavior_cloning/eval/epoch=0990-train_loss=0.000.ckpt"
+zarr_path_ = "/app/avatar_behavior_cloning/eval/weights/_replay_buffer.zarr"
+ckpt_path_ = "/app/avatar_behavior_cloning/eval/weights/epoch=0990-train_loss=0.000.ckpt"
 
 zarr_policy = ZarrPolicyWrapper(zarr_path=zarr_path_, ckpt_path=ckpt_path_)
 
-class PolicyWrapper:
+class PolicyWrapper(BasePolicyWrapper):
     def __init__(self, ckpt_path) -> None:
         self.ckpt_path = ckpt_path        
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -84,7 +94,7 @@ class PolicyWrapper:
 
         device = torch.device("cuda")
         self.policy.eval().to(device)
-        rospy.loginfo("Policy evaluated")
+        # rospy.loginfo("Policy evaluated")
 
         # set inference params
         self.policy.num_inference_steps = 16  # DDIM inference iterations

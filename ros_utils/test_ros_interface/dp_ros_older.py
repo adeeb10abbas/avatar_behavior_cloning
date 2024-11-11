@@ -29,10 +29,6 @@ from diffusion_policy.common.pytorch_util import dict_apply
 from diffusion_policy.common.precise_sleep import precise_wait
 from diffusion_policy.model.common.rotation_transformer import RotationTransformer
 
-#### Subscriber Node CHANGE####
-# from obs_subscriber_node import SubscriberNode
-#################
-
 class SubscriberNode:
     def __init__(self, shared_obs_dict):
         rospy.init_node('observation_subscriber_node')
@@ -55,8 +51,8 @@ class SubscriberNode:
             self.state_obs_left_arm_sub,
             self.state_obs_right_arm_sub,
         ]
-        # self.ts = message_filters.ApproximateTimeSynchronizer(obs_subs, 10, slop=0.5)
-        # self.ts.registerCallback(self.callback)
+        self.ts = message_filters.ApproximateTimeSynchronizer(obs_subs, 10, slop=0.5)
+        self.ts.registerCallback(self.callback)
         
         self.run()
 
@@ -117,19 +113,18 @@ class SubscriberNode:
         self.obs_dict['right_arm_pose'] = np_state4
         self.obs_dict['timestamp'] = img_timestamp
         
-        rospy.loginfo("Observations received!")
+        # rospy.loginfo("Observations synchronized!")
     
     def run(self):
         rospy.spin()
 
-        
 class DiffusionROSInterface:
-    def __init__(self, ckpt_path, shared_obs_dict, fake_data=False):
+    def __init__(self, input, shared_obs_dict, fake_data=False):
         rospy.init_node("diffusion_ros_interface")
-        self.left_gripper_master_pub = rospy.Publisher("/_rdda_l_master_output", RDDAPacket, queue_size=10)
-        self.right_gripper_master_pub = rospy.Publisher("/_rdda_right_master_output", RDDAPacket, queue_size=10)
-        self.left_smarty_arm_pub = rospy.Publisher("/_left_smarty_arm_output", PTIPacket, queue_size=10)
-        self.right_smarty_arm_pub = rospy.Publisher("/_right_smarty_arm_output", PTIPacket, queue_size=10)
+        self.left_gripper_master_pub = rospy.Publisher("/OL_rdda_l_master_output", RDDAPacket, queue_size=10)
+        self.right_gripper_master_pub = rospy.Publisher("/OL_rdda_right_master_output", RDDAPacket, queue_size=10)
+        self.left_smarty_arm_pub = rospy.Publisher("/OL_left_smarty_arm_output", PTIPacket, queue_size=10)
+        self.right_smarty_arm_pub = rospy.Publisher("/OL_right_smarty_arm_output", PTIPacket, queue_size=10)
         self.obs_dict = shared_obs_dict
         self.obs_history = {
             'left_cam': deque(maxlen=10),
@@ -142,10 +137,45 @@ class DiffusionROSInterface:
             'timestamp': deque(maxlen=10),
         }
         self.fake_data = fake_data
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # load checkpoint
+        ckpt_path = input
+        payload = torch.load(open(ckpt_path, "rb"), pickle_module=dill)
+        self.cfg = payload["cfg"]
+        print(self.cfg)
+        cls = hydra.utils.get_class(self.cfg._target_)
+        workspace = cls(self.cfg)
+        workspace: BaseWorkspace
+        workspace.load_payload(payload, exclude_keys=None, include_keys=None)
+        # self.cfg['n_action_steps'] = 8
+        # hacks for method-specific setup.
+        self.frequency = 10
+        self.dt = 1.0 / self.frequency
+        self.steps_per_inference = self.cfg['n_action_steps']
+
+        if "diffusion" in self.cfg.name:
+            # diffusion model
+            self.policy: BaseImagePolicy
+            self.policy = workspace.model
+            if self.cfg.training.use_ema:
+                self.policy = workspace.ema_model
+
+            device = torch.device("cuda")
+            self.policy.eval().to(device)
+            rospy.loginfo("Policy evaluated")
+
+            # set inference params
+            self.policy.num_inference_steps = 16  # DDIM inference iterations
+            self.policy.n_action_steps = 8
+            # self.policy.n_action_steps = 1
+            # self.policy.horizon - self.policy.n_obs_steps + 1
+            # self.policy.n_action_s = self.cfg
+        else:
+            raise NotImplementedError(f"Unknown model type: {self.cfg.name}")
         
         rospy.loginfo("Model Loaded!")
         self.obs_ready = False
-        self.policy = PolicyWrapper(ckpt_path)
         self.main()
 
     def get_obs(self) -> dict:
@@ -161,9 +191,9 @@ class DiffusionROSInterface:
             try:
                 if time.monotonic() - t > 2:
                     rospy.logerr("Timeout, no observations received")
-                    # exit()
-                # rospy.loginfo("Waiting for observations...")
-                # time.sleep(0.5)
+                    exit()
+                rospy.loginfo("Waiting for observations...")
+                time.sleep(0.5)
             except KeyboardInterrupt:
                 rospy.loginfo("Shutting down...")
                 exit()
@@ -261,7 +291,7 @@ class DiffusionROSInterface:
             # packet.wave = [action[0], action[1], action[2]]
             # packet.pos_d = [action[3], action[4], action[5]]
             packet.header.stamp = rospy.get_rostime()
-            # assert(len(packet.wave) == 3)
+            # assert(len(packet.wave) == 3)sla
             # assert(len(packet.pos_d) == 3)
 
             return packet
@@ -288,21 +318,21 @@ class DiffusionROSInterface:
         action_publish_rate = 100
                
         print("shape of left gripper action: ", action_tuple[0].shape)
-        left_gripper_action = self.interpolate_action(action_tuple[0], action_publish_rate)
+        # left_gripper_action = self.interpolate_action(action_tuple[0], action_publish_rate)
         print("interpolated len of left gripper action: ", len(left_gripper_action))
-        right_gripper_action = self.interpolate_action(action_tuple[1], action_publish_rate)
+        # right_gripper_action = self.interpolate_action(action_tuple[1], action_publish_rate)
         left_arm_action = self.interpolate_action(action_tuple[2], action_publish_rate)
         right_arm_action = self.interpolate_action(action_tuple[3], action_publish_rate)
         
-        for step in range(len(left_gripper_action)):
+        for step in range(action_publish_rate):
             t = time.monotonic()
-            left_gripper_packet = create_RDDAPacket(left_gripper_action[step])
-            right_gripper_packet = create_RDDAPacket(right_gripper_action[step])
+            # left_gripper_packet = create_RDDAPacket(left_gripper_action[step])
+            # right_gripper_packet = create_RDDAPacket(right_gripper_action[step])
             left_arm_packet = create_PTIPacket(left_arm_action[step])
             right_arm_packet = create_PTIPacket(right_arm_action[step])
 
-            self.left_gripper_master_pub.publish(left_gripper_packet)
-            self.right_gripper_master_pub.publish(right_gripper_packet)
+            # self.left_gripper_master_pub.publish(left_gripper_packet)
+            # self.right_gripper_master_pub.publish(right_gripper_packet)
             self.left_smarty_arm_pub.publish(left_arm_packet)
             self.right_smarty_arm_pub.publish(right_arm_packet)
             
@@ -319,7 +349,12 @@ class DiffusionROSInterface:
         """
         Parse the tensor action to the corresponding actions for the left gripper, right gripper, left arm and right arm
         """
-        assert action.shape[-1] == 24
+        # TODO: Double check the order
+        # assert action.shape[-1] == 18
+        # print(action)
+        # print(self.obs_dict)
+        # zeros = np.zeros((13, 3))
+        # action = np.hstack((zeros, action[:, :9], zeros, action[:, 9:]))
 
         print("Action shape: ", action.shape, action.shape[-1])
         # import pdb; pdb.set_trace()i
@@ -328,19 +363,33 @@ class DiffusionROSInterface:
         
         left_gripper_action = action[:, 12:15]  # N x 3
         left_arm_action = action[:, 15:]  # N x 9
+        rospy.loginfo(f"Actions dimensions: {left_gripper_action.shape}, {right_gripper_action.shape}, {left_arm_action.shape}, {right_arm_action.shape}")
         return left_gripper_action, right_gripper_action, left_arm_action, right_arm_action
 
     def main(self):
         print("Warming up policy inference")
-        for i in range(2):
+        for i in range(self.policy.n_obs_steps):
             obs = self.get_obs()
-
-        # Warm up the policy
-        self.policy.warm_it_up(obs)
         
-        # print("Ready!")
+        with torch.no_grad():
+            self.policy.reset()
+            # print(obs['/left_cam/color/image_raw'].shape)
+            obs_dict_np = get_real_obs_dict(env_obs=obs, shape_meta=self.cfg.task.shape_meta)
+            
+            obs_dict = dict_apply(obs_dict_np, lambda x: torch.from_numpy(x).unsqueeze(0).to(self.device))
+            print("In warming")
+            print(obs_dict['left_arm_pose'].shape)
+            # import pdb; pdb.set_trace()
+            result = self.policy.predict_action(obs_dict)
+            action = result["action"][0].detach().to("cpu").numpy()
+            # assert action.shape[-1] == 18
+            del result
+
+        print("Ready!")
         # Feed the observation into the model
         try:
+            # Don't know if we really need this (TODO)
+            self.policy.reset()
             start_delay = 1.0
             eval_t_start = time.time() + start_delay
             t_start = time.monotonic() + start_delay
@@ -362,21 +411,26 @@ class DiffusionROSInterface:
                 obs_timestamps = obs["timestamp"]
                 print(f"Obs latency {time.time() - obs_timestamps[-1]}")
                 with torch.no_grad():
-                    action = self.policy.run_inference(obs)
+                    self.policy.reset()
+                    obs_dict_np = get_real_obs_dict(env_obs=obs, shape_meta=self.cfg.task.shape_meta)
+                    obs_dict = dict_apply(obs_dict_np, lambda x: torch.from_numpy(x).unsqueeze(0).to(self.device))
+                    
+                    s = time.monotonic()
+                    result = self.policy.predict_action(obs_dict)
+                    action = result["action"][0].detach().to("cpu").numpy()
+                    print(f"Model inference time: {time.monotonic() - s} seconds")
+
                     # Timestamps check, if the action timestamp is in the past, skip it
                     action_offset = 0
                     action_timestamps = (np.arange(len(action), dtype=np.float64) + action_offset) * self.dt + obs_timestamps[-1]
                     action_exec_latency = 0.01
-                    curr_time = time.time()
+                    curr_time = obs["timestamp"][0] #time.time()
                     is_new = action_timestamps > (curr_time + action_exec_latency)
                     if np.sum(is_new) == 0:
                         # TODO: Not fully understand this part, skip it for now
                         # exceeded time budget, still do something
-                        # TODO: Ask Eric what does this even mean lmao 
-                        # (i can't seem to tell what rui was going for here)
-                        # -----------
-                        
                         # this_target_poses = this_target_poses[[-1]]
+                        # action = action[[-1]]
                         # # schedule on next available step
                         next_step_idx = int(np.ceil((curr_time - eval_t_start) / self.dt))
                         action_timestamp = eval_t_start + (next_step_idx) * self.dt
@@ -386,13 +440,16 @@ class DiffusionROSInterface:
                     else:
                         action_commands = action[is_new]
                         action_timestamps = action_timestamps[is_new]
-
+                    rospy.loginfo(f"Action commands: {action_commands}")
+                    rospy.loginfo(f"Action timestamps: {action_timestamps}")
+                    
                     # Parse the tensor action (Need to double check this)
-                    action_tuple = self.parse_tensor_actions(action_commands)
+                    action_tuple = self.parse_tensor_actions(action)
 
                     # Convert the numpy action to ROS message and publish
                     # TODO: Need to figure out how to publish a trajectory of actions (sync or async?)
                     self.publish_actions(action_tuple)
+                    # time.sleep(0.1)
 
                     # wait for execution
                     precise_wait(t_cycle_end - frame_latency)
@@ -401,18 +458,18 @@ class DiffusionROSInterface:
         except KeyboardInterrupt:
             print("Shutting down...")
 
-def subscriber_node_process(shared_obs_dict):
-    subscriber_node = SubscriberNode(shared_obs_dict)
-    subscriber_node.run()
 
 if __name__ == "__main__":
     manager = Manager()
     shared_obs_dict = manager.dict()
 
-    subscriber_process = Process(target=subscriber_node_process, args=(shared_obs_dict,))
+    subscriber_process = Process(target=SubscriberNode, args=(shared_obs_dict,))
     subscriber_process.start()
-    
-    diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/avatar/avatar_behavior_cloning/training/diffusion_policy/data/outputs/2024.10.25/08.01.23_train_diffusion_unet_hybrid_haptic_image_teacher_aware/checkpoints/latest.ckpt", shared_obs_dict, False))
+
+    import os
+    long_ass_path = "/home/ali/shared_volume/avatar_behavior_cloning/training/diffusion_policy/data/outputs/2024.11.05/21.23.05_train_diffusion_unet_hybrid_LOWDIM_ROS_TEST_ONLY_haptic_image_teacher_aware/checkpoints/"
+    diffusion_process = Process(target=DiffusionROSInterface, args=(os.path.join(long_ass_path, "latest.ckpt"), shared_obs_dict, False))
     diffusion_process.start()
+    
     subscriber_process.join()
     diffusion_process.join()

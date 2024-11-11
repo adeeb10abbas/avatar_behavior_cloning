@@ -1,7 +1,7 @@
 import sys
 import os
 import multiprocessing
-import ros_utils.time_sync_ros_nodes as time_sync_ros_nodes 
+import time_sync_ros_nodes 
 
 def main(input_bag_path, output_bag_path):
     # Check if the input bag file exists

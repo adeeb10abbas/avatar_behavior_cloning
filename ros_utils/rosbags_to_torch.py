@@ -62,12 +62,15 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
     }
 
     with rosbag.Bag(bag_path, 'r') as bag:
+        iter = 0
+        # data_structure["timestamp"] = []
         for topic, msg, t in bag.read_messages():
             if topic in topic_handlers:
                 tensor = topic_handlers[topic](msg, t=t)
-                t = torch.tensor([t.to_sec()])
-                if "right_smarty_arm_output" in topic:
-                    data_structure["timestamp"].append(t)
+                if "/right_smarty_arm_output" == topic:
+                    data_structure["timestamp"].append(torch.tensor([iter]))
+                    iter += 1
+                    print(f"Timestamp: {t}")
                     
                 if "throttled" in topic:
                     if mode == "teacher_aware": 
@@ -78,8 +81,6 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
                         obs_tensor = tensor[:6] # 6
                         action_tensor = tensor[6:] # 3
                     
-
-
                     data_structure["rdda_left_act" if "rdda_l" in topic else "rdda_right_act"].append(action_tensor)
                     data_structure["rdda_left_obs" if "rdda_l" in topic else "rdda_right_obs"].append(obs_tensor)
                     continue          
