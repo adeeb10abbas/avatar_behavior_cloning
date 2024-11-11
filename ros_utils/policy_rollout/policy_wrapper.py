@@ -50,15 +50,14 @@ class ZarrPolicyWrapper(BasePolicyWrapper):
         actions = self.dataset[idx:idx+self.payload["cfg"].policy.n_action_steps]["action"]
         return actions
     
-    def run_simulated_inference(self, obs_dict):
+    def run_inference(self, obs_dict):
         if self.starting_policy_timestamp is None:
             self.reset(obs_dict[0]["timestamp"][0])
         
-        obs_dict = self.torchify_obs(obs_dict)
+        obs_dict = self.torchify_obs(obs_dict) ## Don't need this at all for a zarr replay
         
         current_timestamp = obs_dict[0]["timestamp"][0] - self.starting_policy_timestamp
         action = self.get_actions_from_zarr(current_timestamp)
-        
         return action
 
 # zarr_path_ = "/app/avatar_behavior_cloning/eval/weights/_replay_buffer.zarr"

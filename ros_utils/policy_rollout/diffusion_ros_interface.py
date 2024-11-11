@@ -29,11 +29,11 @@ from diffusion_policy.common.pytorch_util import dict_apply
 from diffusion_policy.common.precise_sleep import precise_wait
 from diffusion_policy.model.common.rotation_transformer import RotationTransformer
 
-from policy_wrapper import PolicyWrapper
+from policy_wrapper import PolicyWrapper, ZarrPolicyWrapper
 from shared_obs_dict_node import SubscriberNode
         
 class DiffusionROSInterface:
-    def __init__(self, ckpt_path, shared_obs_dict, fake_data=False):
+    def __init__(self, ckpt_path, shared_obs_dict, fake_data=False, zarr_replay=False):
         rospy.init_node("diffusion_ros_interface")
         self.left_gripper_master_pub = rospy.Publisher("/_rdda_l_master_output", RDDAPacket, queue_size=10)
         self.right_gripper_master_pub = rospy.Publisher("/_rdda_right_master_output", RDDAPacket, queue_size=10)
@@ -54,7 +54,10 @@ class DiffusionROSInterface:
         
         rospy.loginfo("Model Loaded!")
         self.obs_ready = False
-        self.policy = PolicyWrapper(ckpt_path)
+        if zarr_replay:
+            self.policy = ZarrPolicyWrapper(ckpt_path)
+        else:
+            self.policy = PolicyWrapper(ckpt_path)
         self.main()
 
     def get_obs(self) -> dict:
