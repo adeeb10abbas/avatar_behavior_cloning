@@ -83,6 +83,7 @@ class AvatarHapticsImageDataset(BaseImageDataset):
         # "rdda_left_obs"
         # ]
         self.obs_keys = list(shape_meta["obs"].keys())
+        
         self.all_keys = self.obs_keys + ["action"]
         replay_buffer = ReplayBuffer.copy_from_path(
             zarr_path=dataset_path, 

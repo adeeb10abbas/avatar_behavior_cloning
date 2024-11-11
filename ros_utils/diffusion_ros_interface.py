@@ -122,66 +122,6 @@ class SubscriberNode:
     def run(self):
         rospy.spin()
 
-class PolicyWrapper:
-    def __init__(self, ckpt_path) -> None:
-        self.ckpt_path = ckpt_path        
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # load checkpoint
-        payload = torch.load(open(ckpt_path, "rb"), pickle_module=dill)
-        self.cfg = payload["cfg"]
-        print(self.cfg)
-        cls = hydra.utils.get_class(self.cfg._target_)
-        workspace = cls(self.cfg)
-        workspace: BaseWorkspace
-        workspace.load_payload(payload, exclude_keys=None, include_keys=None)
-
-        # hacks for method-specific setup.
-        self.frequency = 10
-        self.dt = 1.0 / self.frequency
-        self.steps_per_inference = self.cfg['n_action_steps']
-        # self.steps_per_inference = 4
-
-        if "diffusion" in self.cfg.name:
-            # diffusion model
-            self.policy: BaseImagePolicy
-            self.policy = workspace.model
-            if self.cfg.training.use_ema:
-                self.policy = workspace.ema_model
-
-            device = torch.device("cuda")
-            self.policy.eval().to(device)
-            rospy.loginfo("Policy evaluated")
-
-            # set inference params
-            self.policy.num_inference_steps = 16  # DDIM inference iterations
-            # self.policy.n_action_steps = self.policy.horizon - self.policy.n_obs_steps + 1
-            self.policy.n_action_steps = self.cfg['n_action_steps']
-            # self.policy.n_action_steps = 4
-            # self.policy.horizon - self.policy.n_obs_steps + 1
-            # self.policy.n_action_s = self.cfg
-    def torchify_obs(self, obs_dict):
-        obs_dict_np = get_real_obs_dict(env_obs=obs_dict, shape_meta=self.cfg.task.shape_meta)
-        obs_dict = dict_apply(obs_dict_np, lambda x: torch.from_numpy(x).unsqueeze(0).to(self.device))
-        return obs_dict
-    
-    def warm_it_up(self, obs_dict):
-        """
-        raw obs_dict. We cast it here to torch
-        """
-        obs_dict = self.torchify_obs(obs_dict)
-        with torch.no_grad():
-            result = self.policy.predict_action(obs_dict)
-            action = result["action"][0].detach().to("cpu").numpy()
-            assert action.shape[-1] == 24
-            del result
-        print("Warm up done! Ready for roll!")
-    
-    def run_inference(self, obs_dict):
-        obs_dict = self.torchify_obs(obs_dict)
-        result = self.policy.predict_action(obs_dict)
-        action = result["action"][0].detach().to("cpu").numpy()
-        return action
-        
         
 class DiffusionROSInterface:
     def __init__(self, ckpt_path, shared_obs_dict, fake_data=False):

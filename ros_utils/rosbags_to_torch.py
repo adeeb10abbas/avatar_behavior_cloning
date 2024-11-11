@@ -65,7 +65,7 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
         for topic, msg, t in bag.read_messages():
             if topic in topic_handlers:
                 tensor = topic_handlers[topic](msg, t=t)
-                t = torch.tensor(t.to_sec())
+                t = torch.tensor([t.to_sec()])
                 if "right_smarty_arm_output" in topic:
                     data_structure["timestamp"].append(t)
                     
