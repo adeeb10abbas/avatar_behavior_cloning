@@ -70,18 +70,7 @@ class AvatarHapticsImageDataset(BaseImageDataset):
                 Used in the sampler to sample correct length observations.
             abs_action: Whether we are using absolute actions or relative.
         """
-        # rotation_transformer = RotationTransformer(
-        #     from_rep="quaternion", to_rep=rotation_rep
-        # )
-        # self.obs_keys = [
-        # "right_cam",
-        # "left_cam",
-        # "table_cam",
-        # "left_arm_pose",
-        # "right_arm_pose",
-        # "rdda_right_obs",
-        # "rdda_left_obs"
-        # ]
+
         self.obs_keys = list(shape_meta["obs"].keys())
         
         self.all_keys = self.obs_keys + ["action"]
@@ -175,18 +164,11 @@ class AvatarHapticsImageDataset(BaseImageDataset):
 
         # action
         stat = array_to_stats(self.replay_buffer["action"])
-        # if self.abs_action:
-        #     this_normalizer = robomimic_abs_action_only_normalizer_from_stat(
-        #         stat
-        #     )
-        # else:
-        #     # already normalized
         this_normalizer = get_range_normalizer_from_stat(stat)
         normalizer["action"] = this_normalizer
 
         for key in self.lowdim_keys:
             stat = array_to_stats(self.replay_buffer[key])
-            # if key.endswith("_translation"):
             this_normalizer = get_range_normalizer_from_stat(stat)
             normalizer[key] = this_normalizer
 
