@@ -401,7 +401,7 @@ if __name__ == "__main__":
     subscriber_process = Process(target=SubscriberNode, args=(shared_obs_dict,))
     subscriber_process.start()
     
-    diffusion_process = Process(target=DiffusionROSInterface, args=("/app/avatar_behavior_cloning/eval/weights/epoch=0990-train_loss=0.000.ckpt", shared_obs_dict, False))
+    diffusion_process = Process(target=DiffusionROSInterface, args=("/app/avatar_behavior_cloning/eval/weights/epoch=0990-train_loss=0.000.ckpt", shared_obs_dict, False, True))
     diffusion_process.start()
     
     subscriber_process.join()

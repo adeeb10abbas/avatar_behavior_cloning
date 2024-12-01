@@ -13,9 +13,11 @@ from diffusion_policy.common.pytorch_util import dict_apply
 from diffusion_policy.workspace.base_workspace import BaseWorkspace
 from diffusion_policy.policy.base_image_policy import BaseImagePolicy
 import pickle
-
-ckpt_path = "epoch=0990-train_loss=0.000.ckpt"
-pkl_path = "2024-10-16-21-06-12.pkl"
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+ckpt_path_pre = "/app/avatar_behavior_cloning/eval/weights"
+ckpt_path = ckpt_path_pre + "latest.ckpt"
+pkl_path = "/app/avatar_behavior_cloning/eval/weights/pkls/2024-10-02-20-09-18.pkl"
 import matplotlib.pyplot as plt
 
 def load_pkl_obs(pkl_path):
@@ -31,24 +33,30 @@ def load_pkl_obs(pkl_path):
         data_to_save[key] = torch.stack(tensor_list).numpy()
     # import pdb; pdb.set_trace()
     rdda_right_act = data_to_save["rdda_right_act"]
-    right_operator_pose = data_to_save["right_operator_pose"]
+    right_arm_pose = data_to_save["right_arm_pose"]
     rdda_left_act = data_to_save["rdda_left_act"]
-    left_operator_pose = data_to_save["left_operator_pose"]
+    left_arm_pose = data_to_save["left_arm_pose"]
 
     data_to_save["action"] = np.concatenate([rdda_right_act, # 6
-                                        right_operator_pose, # 9
+                                        right_arm_pose, # 9
                                         rdda_left_act, # 6
-                                        left_operator_pose # 9
+                                        left_arm_pose # 9
                                         ], axis=1)
 
     obs_dict = {}
+    ## cameras images
     obs_dict['left_cam'] = data_to_save['left_cam']
     obs_dict['right_cam'] = data_to_save['right_cam']
     obs_dict['table_cam'] = data_to_save['table_cam']
+    
     obs_dict['rdda_left_obs'] = data_to_save['rdda_left_obs']
     obs_dict['rdda_right_obs'] = data_to_save['rdda_right_obs']
+
+    ### These are coming from teleop node data not pti data. Things could have been severly cooked here and 
+    ### I wouldn't have known. We're basically using data in real inference that we don't use in training.
     obs_dict['left_arm_pose'] = data_to_save['left_arm_pose']
     obs_dict['right_arm_pose'] = data_to_save['right_arm_pose']
+
     obs_dict['action'] = data_to_save['action']
     return obs_dict
 
@@ -120,12 +128,11 @@ ground_truth = np.array(raw_dict['action'])
 # import pdb; pdb.set_trace()
 # plt.cla()
 #addition here - rdda_right_act (3)[pos] + right_arm_ee_pose(9) + rdda_left_act(3) [pos] + left_operator_ee_pose(9) 
-plt.plot([i[3:12] for i in inferred], label='inferred_action', linestyle='dashed')
-plt.plot([i[3:12] for i in ground_truth[:]], label=' ground_truth_action')
+plt.plot([i[0:9] for i in inferred], label='inferred_action', linestyle='dashed')
+plt.plot([i[0:9] for i in ground_truth[:]], label=' ground_truth_action')
 plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
 # plt.show()
-plt.savefig('saved_png.png')
-
+plt.savefig('saved_output.png')
 # import pdb; pdb.set_trace()
 
 

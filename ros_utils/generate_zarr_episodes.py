@@ -35,23 +35,27 @@ def main(input_pkl_file_path):
             data_to_save[key] = torch.stack(tensor_list).numpy()
         # import pdb; pdb.set_trace()
         rdda_right_act = data_to_save["rdda_right_act"]
-        right_operator_pose = data_to_save["right_operator_pose"]
+        # right_operator_pose = data_to_save["right_operator_pose"]
         rdda_left_act = data_to_save["rdda_left_act"]
-        left_operator_pose = data_to_save["left_operator_pose"]
+        # left_operator_pose = data_to_save["left_operator_pose"]
         time_stamp = data_to_save["timestamp"]
-
+        # Add left_panda_pose and right_panda_pose to the action array 
+        
+        left_panda_pose = data_to_save["pti_interface_left"]
+        right_panda_pose = data_to_save["pti_interface_right"]
         # Stack the arrays along the 0th dimension
+        
         data_to_save["action"] = np.concatenate([rdda_right_act, # 6
-                                            right_operator_pose, # 9
+                                            left_panda_pose, # 9
                                             rdda_left_act, # 6
-                                            left_operator_pose # 9
+                                            right_panda_pose # 9
                                             ], axis=1)
 
         del data
-        keys_to_delete = ["rdda_right_act", "right_operator_pose", "rdda_left_act", "left_operator_pose"]
-        for key in keys_to_delete:
-            if key in data_to_save:
-                del data_to_save[key]
+        # keys_to_delete = ["rdda_right_act", "right_operator_pose", "rdda_left_act", "left_operator_pose"]
+        # for key in keys_to_delete:
+        #     if key in data_to_save:
+        #         del data_to_save[key]
 
         # Add processed data to replay buffer
         assert len(set(data_to_save.keys()))== len(data_to_save.keys()) 

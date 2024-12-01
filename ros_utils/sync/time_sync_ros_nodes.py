@@ -18,8 +18,8 @@ def callback(image_left, image_right, image_table, right_smarty_arm, left_smarty
     bag_out.write('/right_smarty_arm_output', right_smarty_arm, right_smarty_arm.header.stamp)
     bag_out.write('/left_smarty_arm_output', left_smarty_arm, left_smarty_arm.header.stamp)
     
-    bag_out.write('/left_arm_pose', left_arm_pose, left_arm_pose.header.stamp)
-    bag_out.write('/right_arm_pose', right_arm_pose, right_arm_pose.header.stamp)
+    bag_out.write('/pti_interface_left/pti_output', left_arm_pose, left_arm_pose.header.stamp)
+    bag_out.write('/pti_interface_right/pti_output', right_arm_pose, right_arm_pose.header.stamp)
     assert(left_arm_pose and right_arm_pose)
     assert(right_glove and left_glove)  # Ensure both glove data are available
     

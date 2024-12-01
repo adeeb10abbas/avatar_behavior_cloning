@@ -21,6 +21,7 @@ import copy
 import time
 
 from diffusion_policy.model.common.rotation_transformer import RotationTransformer
+from geometry_msgs.msg import PoseStamped
 
 class SubscriberNode:
     """
@@ -28,14 +29,22 @@ class SubscriberNode:
     """
     def __init__(self, shared_obs_dict):
         rospy.init_node('observation_subscriber_node')
-
+        # Or change it to usb_cam_left/right/table OR /left_cam and so on
+        """
+        Replay the bag as follows:
+        rosbag play *.bag \
+        /usb_cam_left/image_raw:=/left_cam/color/image_raw \
+        /usb_cam_right/image_raw:=/right_cam/color/image_raw \
+        /usb_cam_table/image_raw:=/table_cam/color/image_raw
+        """
         self.images_obs_sub1 = message_filters.Subscriber("/left_cam/color/image_raw", Image)
         self.images_obs_sub2 = message_filters.Subscriber("/right_cam/color/image_raw", Image)
         self.images_obs_sub3 = message_filters.Subscriber("/table_cam/color/image_raw", Image)
-        self.state_obs_left_gripper_sub = message_filters.Subscriber("/rdda_l_master_input", RDDAPacket)
-        self.state_obs_right_gripper_sub = message_filters.Subscriber("/rdda_right_master_input", RDDAPacket)
-        self.state_obs_left_arm_sub = message_filters.Subscriber("/pti_interface_left/pti_output", PTIPacket)
-        self.state_obs_right_arm_sub = message_filters.Subscriber("/pti_interface_right/pti_output", PTIPacket)
+        self.state_obs_left_gripper_sub = message_filters.Subscriber("/throttled_rdda_l_master_output", RDDAPacket)
+        self.state_obs_right_gripper_sub = message_filters.Subscriber("/throttled_rdda_right_master_output", RDDAPacket)
+        
+        self.state_obs_left_arm_sub = message_filters.Subscriber("/pti_interface_left/pti_output", PoseStamped)
+        self.state_obs_right_arm_sub = message_filters.Subscriber("/pti_interface_right/pti_output", PoseStamped)
 
         self.obs_dict = shared_obs_dict
         obs_subs = [
@@ -88,10 +97,10 @@ class SubscriberNode:
         assert np_state2.shape == (3,)
         
         # To use pytorch3d's conversion function, we need real part first quaternion
-        np_position3 = np.array([state3.position.x, state3.position.y, state3.position.z])
-        np_position4 = np.array([state4.position.x, state4.position.y, state4.position.z])
-        np_quat3 = np.array([state3.quat.w, state3.quat.x, state3.quat.y, state3.quat.z])
-        np_quat4 = np.array([state4.quat.w, state4.quat.x, state4.quat.y, state4.quat.z])
+        np_position3 = np.array([state3.pose.position.x, state3.pose.position.y, state3.pose.position.z])
+        np_position4 = np.array([state4.pose.position.x, state4.pose.position.y, state4.pose.position.z])
+        np_quat3 = np.array([state3.pose.orientation.w, state3.pose.orientation.x, state3.pose.orientation.y, state3.pose.orientation.z])
+        np_quat4 = np.array([state4.pose.orientation.w, state4.pose.orientation.x, state4.pose.orientation.y, state4.pose.orientation.z])
         
         tf = RotationTransformer(from_rep='quaternion', to_rep='rotation_6d')
         np_state3 = np.concatenate((np_position3, tf.forward(np_quat3)))
@@ -105,11 +114,13 @@ class SubscriberNode:
         self.obs_dict['table_cam'] = cv_image3
         self.obs_dict['rdda_left_obs'] = np_state1
         self.obs_dict['rdda_right_obs'] = np_state2
+        
         self.obs_dict['left_arm_pose'] = np_state3
         self.obs_dict['right_arm_pose'] = np_state4
+        
         self.obs_dict['timestamp'] = img_timestamp
         
-        rospy.loginfo("Observations received!")
+       #rospy.loginfo("Observations received!")
     
     def run(self):
         rospy.spin()

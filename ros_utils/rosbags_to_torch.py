@@ -44,8 +44,8 @@ def concatenate_data(data_list, desired_len=256):
 def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
     assert mode in ["teacher_aware", "policy_aware"], "Mode must be either 'teacher_aware' or 'policy_aware'"
     data_structure = {"rdda_right_obs": [], "rdda_right_act": [], "rdda_left_obs": [], "rdda_left_act": [], "timestamp": []}
-    left_arm_pose_handler = partial(operator_arm_pose_to_tensor, side="left")
-    right_arm_pose_handler = partial(operator_arm_pose_to_tensor, side="right")
+    # left_arm_pose_handler = partial(operator_arm_pose_to_tensor, side="left")
+    # right_arm_pose_handler = partial(operator_arm_pose_to_tensor, side="right")
     
     rdda_packet_to_tensor_teacher = partial(rdda_packet_to_tensor, mode=mode)
 
@@ -53,10 +53,10 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
         "/left_cam/color/image_raw": image_to_tensor, # obs
         "/right_cam/color/image_raw": image_to_tensor, # obs
         "/table_cam/color/image_raw": image_to_tensor, # obs
-        "/right_smarty_arm_output": right_arm_pose_handler, # obs + action (user)
-        "/left_smarty_arm_output": left_arm_pose_handler, # obs + action (user)
-        "/left_arm_pose": panda_arm_pose_to_tensor, # obs
-        "/right_arm_pose": panda_arm_pose_to_tensor, # obs
+        # "/right_smarty_arm_output": right_arm_pose_handler, # obs + action (user)
+        # "/left_smarty_arm_output": left_arm_pose_handler, # obs + action (user)
+        "/pti_interface_left/pti_output": panda_arm_pose_to_tensor, # obs
+        "/pti_interface_right/pti_output": panda_arm_pose_to_tensor, # obs
         "/throttled_rdda_right_master_output": rdda_packet_to_tensor_teacher, # obs, act
         "/throttled_rdda_l_master_output": rdda_packet_to_tensor_teacher, # obs, act
     }
@@ -67,7 +67,7 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
         for topic, msg, t in bag.read_messages():
             if topic in topic_handlers:
                 tensor = topic_handlers[topic](msg, t=t)
-                if "/right_smarty_arm_output" == topic:
+                if "/throttled_rdda_right_master_output" == topic:
                     data_structure["timestamp"].append(torch.tensor([iter]))
                     iter += 1
                     print(f"Timestamp: {t}")
@@ -84,17 +84,20 @@ def extract_and_organize_data_from_bag(bag_path, mode, output_file_path):
                     data_structure["rdda_left_act" if "rdda_l" in topic else "rdda_right_act"].append(action_tensor)
                     data_structure["rdda_left_obs" if "rdda_l" in topic else "rdda_right_obs"].append(obs_tensor)
                     continue          
-                      
+                
                 if tensor is not None:
                     if "image" in topic:
                         topic_key = topic.split("/")[1]
-                    elif "smarty" in topic:
-                        topic_key = topic.split("/")[-1].replace("smarty_arm_output", "operator_pose")
+                    # elif "smarty" in topic:
+                    #     topic_key = topic.split("/")[-1].replace("smarty_arm_output", "operator_pose")
+                    elif "pti" in topic:
+                        topic_key = topic.split("/")[1]
                     else:
                         topic_key = topic.split("/")[-1]
                     if topic_key not in data_structure:
                         data_structure[topic_key] = []
                     data_structure[topic_key].append(tensor)
+                
     # Saving the organized data without concatenation
     with open(output_file_path, 'wb') as f:
         pickle.dump(data_structure, f)

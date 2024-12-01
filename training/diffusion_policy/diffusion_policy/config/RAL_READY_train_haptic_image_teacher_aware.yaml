@@ -19,19 +19,19 @@ image_shape: &image_shape [3, 480, 640]
 shape_meta: &shape_meta
   # acceptable types: rgb, low_dim
   obs:
-    # right_cam:
-    #    shape: *image_shape
-    #    type: rgb
-    # left_cam:
-    #    shape: *image_shape
-    #    type: rgb
-    # table_cam:
-    #    shape: *image_shape
-    #    type: rgb
-    left_arm_pose:
+    right_cam:
+       shape: *image_shape
+       type: rgb
+    left_cam:
+       shape: *image_shape
+       type: rgb
+    table_cam:
+       shape: *image_shape
+       type: rgb
+    pti_interface_left:
       shape: [9] # left robot EE pose
       type: low_dim
-    right_arm_pose:
+    pti_interface_right:
       shape: [9] # right robot EE pose
       type: low_dim
     rdda_right_obs:
@@ -45,9 +45,9 @@ shape_meta: &shape_meta
     # addition here - rdda_right_act (3)[pos] + right_arm_ee_pose(9) + rdda_left_act(3) [pos] + left_operator_ee_pose(9) 
 
 task:
-  name: haptic_image_teacher_aware
-  task_name: bottle_pick_lower_down_dims_1024
-  dataset_path: /home/ali/avatar_recordings/dumb_lift/pkls/_replay_buffer.zarr
+  name: overfit_visuomotor_both_pti
+  task_name: bottle_pick_full_img_space_1024
+  dataset_path: /home/ali/shared_volume/avatar_behavior_cloning/eval/weights/pkls/_replay_buffer.zarr
   dataset_type: ph
   abs_action: ${abs_action}
   shape_meta: ${shape_meta}
@@ -121,14 +121,14 @@ ema:
   max_value: 0.9999
 
 dataloader:
-  batch_size: 8000
+  batch_size: 72
   num_workers: 14
   shuffle: False
   pin_memory: False
   persistent_workers: True
 
 val_dataloader:
-  batch_size: 6000
+  batch_size: 72
   num_workers: 14
   shuffle: False
   pin_memory: False

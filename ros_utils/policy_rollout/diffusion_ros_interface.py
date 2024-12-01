@@ -33,7 +33,7 @@ from policy_wrapper import PolicyWrapper, ZarrPolicyWrapper
 from shared_obs_dict_node import SubscriberNode
         
 class DiffusionROSInterface:
-    def __init__(self, ckpt_path, shared_obs_dict, fake_data=False, zarr_replay=False):
+    def __init__(self, ckpt_path, shared_obs_dict, fake_data=False, zarr_replay=True):
         rospy.init_node("diffusion_ros_interface")
         self.left_gripper_master_pub = rospy.Publisher("/_rdda_l_master_output", RDDAPacket, queue_size=10)
         self.right_gripper_master_pub = rospy.Publisher("/_rdda_right_master_output", RDDAPacket, queue_size=10)
@@ -55,9 +55,14 @@ class DiffusionROSInterface:
         rospy.loginfo("Model Loaded!")
         self.obs_ready = False
         if zarr_replay:
-            self.policy = ZarrPolicyWrapper(ckpt_path)
+            self.policy = ZarrPolicyWrapper(zarr_path="/app/avatar_behavior_cloning/eval/weights/_replay_buffer.zarr", ckpt_path=ckpt_path)
         else:
             self.policy = PolicyWrapper(ckpt_path)
+            
+        ## alleged hacks 
+        self.frequency = 10
+        self.dt = 1.0 / self.frequency
+        
         self.main()
 
     def get_obs(self) -> dict:
@@ -265,7 +270,7 @@ class DiffusionROSInterface:
             iter_idx = 0
             while True:
                 # calculate timing
-                t_cycle_end = t_start + (iter_idx + self.steps_per_inference) * self.dt
+                t_cycle_end = t_start + (iter_idx + self.policy.steps_per_inference) * self.dt
 
                 # get obs
                 obs = self.get_obs()
@@ -324,7 +329,7 @@ if __name__ == "__main__":
     subscriber_process = Process(target=subscriber_node_process, args=(shared_obs_dict,))
     subscriber_process.start()
     
-    diffusion_process = Process(target=DiffusionROSInterface, args=("/home/ali/avatar/avatar_behavior_cloning/training/diffusion_policy/data/outputs/2024.10.25/08.01.23_train_diffusion_unet_hybrid_haptic_image_teacher_aware/checkpoints/latest.ckpt", shared_obs_dict, False))
+    diffusion_process = Process(target=DiffusionROSInterface, args=("/app/avatar_behavior_cloning/eval/weights/epoch=0990-train_loss=0.000.ckpt", shared_obs_dict, False))
     diffusion_process.start()
     subscriber_process.join()
     diffusion_process.join()
