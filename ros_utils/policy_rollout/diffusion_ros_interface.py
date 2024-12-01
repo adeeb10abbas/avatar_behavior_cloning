@@ -139,26 +139,21 @@ class DiffusionROSInterface:
             interpolated_action[i*scale:i*scale+scale,:] = np.linspace(action_low_freq[i], action_low_freq[i+1], scale+1)[:-1]
         
         interpolated_action[-1] = action_low_freq[-1]
-        # import pdb; pdb.set_trace()
         
-        if np.any(interpolated_action[0] != action_low_freq[0]):
-            print("First element not equal")
-            print(interpolated_action)
-            print(action_low_freq)
-            exit()
         
-        if np.any(interpolated_action[-1] != action_low_freq[-1]):
-            print("Last element not equal")
-            print(interpolated_action)
-            print(action_low_freq)
-            exit()
-        assert np.all(interpolated_action[0] == action_low_freq[0])
-        assert np.all(interpolated_action[-1] == action_low_freq[-1])
-        # print("==============")
-        # print(interpolated_action)
-        # print("==============")
-        # print(action_low_freq)
-        # print("Interpolated action shape: ", interpolated_action.shape)
+        delta = 1e-5
+
+        if not np.allclose(interpolated_action[0], action_low_freq[0], atol=delta):
+            rospy.logerr("First element not within delta")
+            rospy.logerr(f"Interpolated action: {interpolated_action[0]}")
+            rospy.logerr(f"Original action: {action_low_freq[0]}")
+            raise ValueError("First element of interpolated action does not match the original action within delta")
+
+        if not np.allclose(interpolated_action[-1], action_low_freq[-1], atol=delta):
+            rospy.logerr("Last element not within delta")
+            rospy.logerr(f"Interpolated action: {interpolated_action[-1]}")
+            rospy.logerr(f"Original action: {action_low_freq[-1]}")
+            raise ValueError("Last element of interpolated action does not match the original action within delta")
         
         return interpolated_action
     
@@ -284,7 +279,9 @@ class DiffusionROSInterface:
                     action_offset = 0
                     action_timestamps = (np.arange(len(action), dtype=np.float64) + action_offset) * self.dt + obs_timestamps[-1]
                     action_exec_latency = 0.01
-                    curr_time = time.time()
+                    # make the logic so that when zarr it takes the obs_timestamps
+                    # curr_time = time.time()
+                    curr_time = obs_timestamps[-1]
                     is_new = action_timestamps > (curr_time + action_exec_latency)
                     if np.sum(is_new) == 0:
                         # TODO: Not fully understand this part, skip it for now
@@ -309,11 +306,14 @@ class DiffusionROSInterface:
 
                     # Convert the numpy action to ROS message and publish
                     # TODO: Need to figure out how to publish a trajectory of actions (sync or async?)
+                    print("Publishing actions...")
+                    print("Action timestamps: ", action_timestamps[-1])
+
                     self.publish_actions(action_tuple)
 
                     # wait for execution
                     precise_wait(t_cycle_end - frame_latency)
-                    iter_idx += self.steps_per_inference
+                    iter_idx += self.policy.steps_per_inference
                     
         except KeyboardInterrupt:
             print("Shutting down...")
