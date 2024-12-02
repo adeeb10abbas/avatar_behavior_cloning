@@ -56,6 +56,7 @@ class DiffusionROSInterface:
         self.obs_ready = False
         if zarr_replay:
             self.policy = ZarrPolicyWrapper(zarr_path="/app/avatar_behavior_cloning/eval/weights/_replay_buffer.zarr", ckpt_path=ckpt_path)
+            rospy.loginfo("Streaming the data from zarr replay buffer")
         else:
             self.policy = PolicyWrapper(ckpt_path)
             
@@ -199,9 +200,9 @@ class DiffusionROSInterface:
 
         action_publish_rate = 100
                
-        print("shape of left gripper action: ", action_tuple[0].shape)
+        #print("shape of left gripper action: ", action_tuple[0].shape)
         left_gripper_action = self.interpolate_action(action_tuple[0], action_publish_rate)
-        print("interpolated len of left gripper action: ", len(left_gripper_action))
+        #print("interpolated len of left gripper action: ", len(left_gripper_action))
         right_gripper_action = self.interpolate_action(action_tuple[1], action_publish_rate)
         left_arm_action = self.interpolate_action(action_tuple[2], action_publish_rate)
         right_arm_action = self.interpolate_action(action_tuple[3], action_publish_rate)
@@ -219,7 +220,6 @@ class DiffusionROSInterface:
             self.right_smarty_arm_pub.publish(right_arm_packet)
             
             elapsed = time.monotonic() - t
-            # print(f"Publishing elapsed: {elapsed} seconds")
             if (1.0/action_publish_rate - elapsed) > 0:
                 time.sleep(1.0/action_publish_rate - elapsed)
             else:
@@ -234,7 +234,6 @@ class DiffusionROSInterface:
         assert action.shape[-1] == 24
 
         print("Action shape: ", action.shape, action.shape[-1])
-        # import pdb; pdb.set_trace()i
         right_gripper_action = action[:, 0:3]  # N x 3
         right_arm_action = action[:, 3:12]  # N x 9
         

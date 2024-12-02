@@ -63,7 +63,8 @@ class ZarrPolicyWrapper(BasePolicyWrapper):
         
         if current_timestamp >= len(self.dataset):
             current_timestamp = current_timestamp % len(self.dataset)
-            
+            rospy.loginfo(f"Went past the zarr length. Repeating actions from the start")
+        rospy.loginfo(f"Current timestamp: {current_timestamp}")        
         actions = self.dataset[current_timestamp]["action"][:self.n_action_steps]
         return actions
     
