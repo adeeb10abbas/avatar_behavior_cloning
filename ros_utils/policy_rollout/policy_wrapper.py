@@ -61,7 +61,7 @@ class ZarrPolicyWrapper(BasePolicyWrapper):
         If we are we start repeating the actions because we're running the bag in a loop
         """
         
-        if current_timestamp >= len(self.dataset):
+        if current_timestamp >= len(self.dataset) :
             current_timestamp = current_timestamp % len(self.dataset)
             rospy.loginfo(f"Went past the zarr length. Repeating actions from the start")
         rospy.loginfo(f"Current timestamp: {current_timestamp}")        
@@ -69,10 +69,12 @@ class ZarrPolicyWrapper(BasePolicyWrapper):
         return actions
     
     def run_inference(self, obs_dict):
-        if self.starting_policy_timestamp is None:
+        if self.starting_policy_timestamp is None or self.starting_policy_timestamp > float(obs_dict["timestamp"][0]):
             self.reset(obs_dict["timestamp"][0])
         
         current_timestamp = float(obs_dict["timestamp"][0]) - self.starting_policy_timestamp
+        if current_timestamp < 0:
+            raise ValueError(f"Timestamp is less than the starting timestamp. Current timestamp: {current_timestamp}, Starting timestamp: {self.starting_policy_timestamp}")
         action = self.get_actions_from_zarr(int(current_timestamp))
         
         return action

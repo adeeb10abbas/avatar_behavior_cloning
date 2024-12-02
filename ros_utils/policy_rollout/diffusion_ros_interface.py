@@ -54,6 +54,7 @@ class DiffusionROSInterface:
         
         rospy.loginfo("Model Loaded!")
         self.obs_ready = False
+        self.zarr_only = zarr_replay
         if zarr_replay:
             self.policy = ZarrPolicyWrapper(zarr_path="/app/avatar_behavior_cloning/eval/weights/_replay_buffer.zarr", ckpt_path=ckpt_path)
             rospy.loginfo("Streaming the data from zarr replay buffer")
@@ -225,7 +226,7 @@ class DiffusionROSInterface:
             else:
                 print("Publishing time exceeds the time budget")
         
-        print("All actions published successfully!")
+        #print("All actions published successfully!")
 
     def parse_tensor_actions(self, action: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
@@ -233,7 +234,7 @@ class DiffusionROSInterface:
         """
         assert action.shape[-1] == 24
 
-        print("Action shape: ", action.shape, action.shape[-1])
+        # print("Action shape: ", action.shape, action.shape[-1])
         right_gripper_action = action[:, 0:3]  # N x 3
         right_arm_action = action[:, 3:12]  # N x 9
         
@@ -242,7 +243,8 @@ class DiffusionROSInterface:
         return left_gripper_action, right_gripper_action, left_arm_action, right_arm_action
 
     def main(self):
-        print("Warming up policy inference")
+        # print(f"Publishing elapsed: {elapsed} seconds")
+        # print("Warming up policy inference")
         for i in range(2):
             obs = self.get_obs()
 
@@ -305,14 +307,15 @@ class DiffusionROSInterface:
 
                     # Convert the numpy action to ROS message and publish
                     # TODO: Need to figure out how to publish a trajectory of actions (sync or async?)
-                    print("Publishing actions...")
-                    print("Action timestamps: ", action_timestamps[-1])
+#                    print("Publishing actions...")
+#                    print("Action timestamps: ", action_timestamps[-1])
 
                     self.publish_actions(action_tuple)
 
                     # wait for execution
-                    precise_wait(t_cycle_end - frame_latency)
-                    iter_idx += self.policy.steps_per_inference
+                    if not self.zarr_only:
+                        precise_wait(t_cycle_end - frame_latency)
+                        iter_idx += self.policy.steps_per_inference
                     
         except KeyboardInterrupt:
             print("Shutting down...")
